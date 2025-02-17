@@ -16,51 +16,52 @@ def check_materialized_view():
         # Create Supabase client
         db = SupabaseClient(config.supabase_url, config.supabase_key)
         
-        # SQL to check view existence
+        # 获取最新数据
+        print("\n最新更新的记录：")
+        print("----------------------------------------")
+        response = db.client.from_('db_view_apartment_list_rent_estimates_1_3')\
+            .select('*')\
+            .order('last_update_time', desc=True)\
+            .limit(3)\
+            .execute()
+            
+        for row in response.data:
+            print(f"地区: {row['location_name']}")
+            print(f"类型: {row['location_type']}")
+            print(f"月份: {row['year_month']}")
+            print(f"租金估计: ${row['rent_estimate_overall']}")
+            print(f"更新时间: {row['last_update_time']}")
+            print("----------------------------------------")
+            
+        # 获取最新月份的数据
+        print("\n最新月份的数据示例：")
+        print("----------------------------------------")
+        response = db.client.from_('db_view_apartment_list_rent_estimates_1_3')\
+            .select('*')\
+            .order('year_month', desc=True)\
+            .limit(3)\
+            .execute()
+            
+        for row in response.data:
+            print(f"地区: {row['location_name']}")
+            print(f"类型: {row['location_type']}")
+            print(f"月份: {row['year_month']}")
+            print(f"租金估计: ${row['rent_estimate_overall']}")
+            print("----------------------------------------")
+            
+        # 获取不同地区类型的数量
+        print("\n不同地区类型统计：")
+        print("----------------------------------------")
         sql = """
-        SELECT 
-            mv.matviewname,
-            n.nspname as schema_name,
-            pg_size_pretty(pg_relation_size(c.oid)) as size
-        FROM pg_matviews mv
-        JOIN pg_class c ON c.relname = mv.matviewname
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE mv.matviewname = 'db_view_apartment_list_rent_estimates_1_3';
+        SELECT location_type, COUNT(*) as count
+        FROM db_view_apartment_list_rent_estimates_1_3
+        GROUP BY location_type
+        ORDER BY count DESC;
         """
-        
-        # Execute SQL using REST API
         response = db.client.rpc('raw_sql', {'command': sql}).execute()
         
-        if not response.data:
-            print("\n物化视图不存在！")
-            print("需要在 Supabase SQL 编辑器中创建视图。")
-            return
-            
-        view_info = response.data[0]
-        print("\n物化视图状态：")
-        print("----------------------------------------")
-        print(f"名称: {view_info['matviewname']}")
-        print(f"模式: {view_info['schema_name']}")
-        print(f"大小: {view_info['size']}")
-        
-        # 检查视图中的数据
-        sql_data = """
-        SELECT 
-            COUNT(*) as total_records,
-            MIN(year_month) as earliest_month,
-            MAX(year_month) as latest_month
-        FROM db_view_apartment_list_rent_estimates_1_3;
-        """
-        
-        response = db.client.rpc('raw_sql', {'command': sql_data}).execute()
-        
-        if response.data:
-            data_info = response.data[0]
-            print("\n数据统计：")
-            print("----------------------------------------")
-            print(f"总记录数: {data_info['total_records']}")
-            print(f"最早月份: {data_info['earliest_month']}")
-            print(f"最新月份: {data_info['latest_month']}")
+        for row in response.data:
+            print(f"{row['location_type']}: {row['count']} 条记录")
             
     except Exception as e:
         print(f"错误: {str(e)}")
