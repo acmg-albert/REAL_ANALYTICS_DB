@@ -78,6 +78,7 @@ class SupabaseClient:
                 rent_estimate_overall DOUBLE PRECISION,
                 rent_estimate_1br DOUBLE PRECISION,
                 rent_estimate_2br DOUBLE PRECISION,
+                last_update_time TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'),
                 PRIMARY KEY (location_fips_code, year_month)
             );
             """
@@ -120,6 +121,10 @@ class SupabaseClient:
         """
         try:
             logger.info(f"Inserting {len(records)} records")
+            
+            # Add last_update_time to each record with ET timezone
+            for record in records:
+                record['last_update_time'] = "(CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')"
             
             result = self.client.table('apartment_list_rent_estimates').upsert(
                 records,
@@ -202,4 +207,80 @@ class SupabaseClient:
             return list(set(r['location_fips_code'] for r in result.data))
             
         except Exception as e:
-            raise DatabaseError(f"Failed to get location_fips_codes: {str(e)}") from e 
+            raise DatabaseError(f"Failed to get location_fips_codes: {str(e)}") from e
+
+    def add_last_update_time_column(self) -> None:
+        """
+        Add last_update_time column to the rent estimates table if it doesn't exist.
+        
+        Raises:
+            DatabaseError: If column addition fails
+        """
+        try:
+            # Check if column exists
+            sql = """
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'apartment_list_rent_estimates' 
+                    AND column_name = 'last_update_time'
+                ) THEN 
+                    ALTER TABLE apartment_list_rent_estimates 
+                    ADD COLUMN last_update_time TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York');
+                    
+                    -- Update existing rows with WHERE clause
+                    UPDATE apartment_list_rent_estimates 
+                    SET last_update_time = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')
+                    WHERE last_update_time IS NULL;
+                END IF;
+            END $$;
+            """
+            
+            self.execute_sql(sql)
+            logger.info("Last update time column added or already exists")
+            
+        except Exception as e:
+            raise DatabaseError(f"Failed to add last_update_time column: {str(e)}") from e
+
+    def verify_timezone(self) -> None:
+        """Verify the timezone settings for last_update_time."""
+        try:
+            # 使用 REST API 查询
+            response = requests.get(
+                f"{self.url}/rest/v1/apartment_list_rent_estimates",
+                headers=self.headers,
+                params={
+                    'select': 'last_update_time',
+                    'order': 'last_update_time.desc',
+                    'limit': '5'
+                }
+            )
+            
+            if response.status_code >= 400:
+                raise Exception(f"HTTP {response.status_code}: {response.text}")
+                
+            data = response.json()
+            if not data:
+                print("No data found with timestamps")
+                return
+                
+            print("\nTimezone verification results:")
+            print("--------------------------------")
+            for row in data:
+                utc_time = row['last_update_time']
+                # 从UTC时间中提取时区信息
+                if '+00:00' in utc_time:
+                    print(f"Time is stored in UTC format as expected")
+                else:
+                    print(f"Warning: Time is not stored in UTC format")
+                print(f"Timestamp: {utc_time}")
+                print("--------------------------------")
+            
+            print("\nNote: Times are stored in UTC format (+00:00)")
+            print("When displayed in the application, they will be")
+            print("automatically converted to US Eastern Time.")
+            
+        except Exception as e:
+            raise DatabaseError(f"Failed to verify timezone: {str(e)}") from e 
