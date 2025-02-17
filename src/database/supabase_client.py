@@ -22,7 +22,7 @@ class SupabaseClient:
             key: Supabase API key
         """
         self.client: Client = create_client(url, key)
-        self.url = url
+        self.url = url.rstrip('/')
         self.key = key
         self.headers = {
             'apikey': self.key,
@@ -31,6 +31,31 @@ class SupabaseClient:
             'Prefer': 'return=minimal'
         }
         
+    def execute_sql(self, sql: str) -> None:
+        """
+        Execute raw SQL query.
+        
+        Args:
+            sql: SQL query to execute
+            
+        Raises:
+            DatabaseError: If query execution fails
+        """
+        try:
+            # 使用 SQL 编辑器 API 端点
+            response = requests.post(
+                f"{self.url}/rest/v1/rpc/raw_sql",
+                headers=self.headers,
+                json={'command': sql}  # 使用 'command' 而不是 'sql'
+            )
+            
+            if response.status_code >= 400:
+                error_text = response.text if response.text else f"HTTP {response.status_code}"
+                raise Exception(error_text)
+                
+        except Exception as e:
+            raise DatabaseError(f"Failed to execute SQL: {str(e)}") from e
+            
     def create_rent_estimates_table(self) -> None:
         """
         Create the rent estimates table if it doesn't exist.
