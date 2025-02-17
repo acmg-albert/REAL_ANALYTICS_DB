@@ -15,4 +15,6 @@ aiohttp>=3.9.0
 tenacity>=8.2.0
 pydantic>=2.0.0
 apscheduler>=3.10.0
-supabase>=2.3.0 
+supabase>=2.3.0
+flask>=3.0.0
+gunicorn>=21.2.0 
