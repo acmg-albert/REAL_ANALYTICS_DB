@@ -2,6 +2,8 @@
 
 import logging
 from typing import Dict, List, Optional
+from datetime import datetime
+import pytz
 
 import requests
 from supabase import Client, create_client
@@ -122,9 +124,13 @@ class SupabaseClient:
         try:
             logger.info(f"Inserting {len(records)} records")
             
-            # Add last_update_time to each record with ET timezone
+            # 获取美国东部时区
+            eastern = pytz.timezone('America/New_York')
+            current_time = datetime.now(eastern)
+            
+            # 为每条记录添加时间戳
             for record in records:
-                record['last_update_time'] = "(CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')"
+                record['last_update_time'] = current_time.isoformat()
             
             result = self.client.table('apartment_list_rent_estimates').upsert(
                 records,
