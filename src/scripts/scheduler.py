@@ -34,9 +34,18 @@ def update_database_view(config: Config):
     try:
         db = SupabaseClient(config.supabase_url, config.supabase_key)
         
-        # SQL to refresh the materialized view
+        # SQL to check if view exists and refresh it
         sql = """
-        REFRESH MATERIALIZED VIEW IF EXISTS DB_VIEW_Apartment_List_Rent_Estimates_1_3;
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 
+                FROM pg_matviews 
+                WHERE matviewname = 'db_view_apartment_list_rent_estimates_1_3'
+            ) THEN
+                REFRESH MATERIALIZED VIEW db_view_apartment_list_rent_estimates_1_3;
+            END IF;
+        END $$;
         """
         
         # Execute the SQL
