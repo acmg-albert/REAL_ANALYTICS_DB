@@ -16,15 +16,12 @@ def check_materialized_view():
         # Create Supabase client
         db = SupabaseClient(config.supabase_url, config.supabase_key)
         
-        # SQL to check view existence and last refresh time
+        # SQL to check view existence
         sql = """
         SELECT 
             mv.matviewname,
             n.nspname as schema_name,
-            pg_size_pretty(pg_relation_size(c.oid)) as size,
-            pg_stat_get_last_autovacuum_time(c.oid) as last_autovacuum,
-            pg_stat_get_last_analyze_time(c.oid) as last_analyze,
-            pg_stat_get_rows_inserted(c.oid) as rows_inserted
+            pg_size_pretty(pg_relation_size(c.oid)) as size
         FROM pg_matviews mv
         JOIN pg_class c ON c.relname = mv.matviewname
         JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -45,9 +42,6 @@ def check_materialized_view():
         print(f"名称: {view_info['matviewname']}")
         print(f"模式: {view_info['schema_name']}")
         print(f"大小: {view_info['size']}")
-        print(f"最后自动清理时间: {view_info['last_autovacuum']}")
-        print(f"最后分析时间: {view_info['last_analyze']}")
-        print(f"插入的行数: {view_info['rows_inserted']}")
         
         # 检查视图中的数据
         sql_data = """
