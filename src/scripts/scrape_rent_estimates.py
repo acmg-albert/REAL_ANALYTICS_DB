@@ -13,8 +13,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(Path("logs") / "rent_estimates_scraper.log")
+        logging.StreamHandler(sys.stdout)
     ]
 )
 
@@ -24,7 +23,7 @@ def main():
     """Main entry point for the rent estimates scraping script."""
     try:
         # Load configuration
-        config = Config.from_env(".env")
+        config = Config.from_env()
         
         # Initialize and run scraper
         scraper = RentEstimatesScraper(config)
