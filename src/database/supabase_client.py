@@ -21,7 +21,7 @@ class SupabaseClient:
         
         Args:
             url: Supabase project URL
-            key: Supabase API key
+            key: Supabase API key (anon key for read-only, service role key for write access)
         """
         self.client: Client = create_client(url, key)
         self.url = url.rstrip('/')

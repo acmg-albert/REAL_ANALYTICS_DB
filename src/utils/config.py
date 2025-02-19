@@ -24,10 +24,9 @@ class Config:
     
     # Supabase configuration
     supabase_url: str
-    supabase_key: str
+    supabase_anon_key: str
     
     # API configuration
-    apartment_list_api_key: Optional[str]
     apartment_list_api_base_url: str
     
     # Scraping configuration
@@ -42,6 +41,10 @@ class Config:
     
     # Logging
     log_level: str
+    
+    # Optional configurations
+    apartment_list_api_key: Optional[str] = None
+    supabase_service_role_key: Optional[str] = None
     
     @staticmethod
     def _validate_supabase_url(url: str) -> str:
@@ -98,13 +101,15 @@ class Config:
             
             # Get Supabase configuration
             supabase_url = os.getenv("SUPABASE_URL")
-            supabase_key = os.getenv("SUPABASE_KEY")
+            supabase_anon_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
+            supabase_service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
             
             print(f"Raw SUPABASE_URL: {supabase_url}")
-            print(f"Raw SUPABASE_KEY: {supabase_key}")
+            print(f"Raw SUPABASE_ANON_KEY: {supabase_anon_key}")
+            print(f"Raw SUPABASE_SERVICE_ROLE_KEY: {supabase_service_role_key}")
             
-            if not supabase_url or not supabase_key:
-                raise ConfigurationError("SUPABASE_URL and SUPABASE_KEY are required")
+            if not supabase_url or not supabase_anon_key:
+                raise ConfigurationError("SUPABASE_URL and SUPABASE_ANON_KEY are required")
                 
             # Validate and normalize Supabase URL
             supabase_url = cls._validate_supabase_url(supabase_url)
@@ -119,10 +124,9 @@ class Config:
                 
                 # Supabase configuration
                 supabase_url=supabase_url,
-                supabase_key=supabase_key,
+                supabase_anon_key=supabase_anon_key,
                 
                 # API configuration
-                apartment_list_api_key=os.getenv("APARTMENT_LIST_API_KEY"),
                 apartment_list_api_base_url=os.getenv(
                     "APARTMENT_LIST_API_BASE_URL",
                     "https://www.apartmentlist.com/api/v2"
@@ -144,6 +148,10 @@ class Config:
                 
                 # Logging
                 log_level=os.getenv("LOG_LEVEL", "INFO"),
+                
+                # Optional configurations
+                apartment_list_api_key=os.getenv("APARTMENT_LIST_API_KEY"),
+                supabase_service_role_key=supabase_service_role_key,
             )
             
         except (ValueError, TypeError) as e:
