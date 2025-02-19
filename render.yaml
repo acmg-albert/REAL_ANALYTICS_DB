@@ -15,4 +15,9 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-    autoDeploy: true 
+    autoDeploy: true
+
+  - type: cron
+    name: real-analytics-db-update
+    schedule: "0 2 * * *"  # 每天凌晨 2 点
+    command: curl -X GET https://real-analytics-db.onrender.com/run-update 
