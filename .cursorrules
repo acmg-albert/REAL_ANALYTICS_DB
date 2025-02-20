@@ -1,0 +1,84 @@
+# Instructions
+
+During you interaction with the user, if you find anything reusable in this project (e.g. version of a library, model name), especially about a fix to a mistake you made or a correction you received, you should take note in the `Lessons` section in the `.cursorrules` file so you will not make the same mistake again. 
+
+You should also use the `.cursorrules` file as a scratchpad to organize your thoughts. Especially when you receive a new task, you should first review the content of the scratchpad, clear old different task if necessary, first explain the task, and plan the steps you need to take to complete the task. You can use todo markers to indicate the progress, e.g.
+[X] Task 1
+[ ] Task 2
+
+Also update the progress of the task in the Scratchpad when you finish a subtask.
+Especially when you finished a milestone, it will help to improve your depth of task accomplishment to use the scratchpad to reflect and plan.
+The goal is to help you maintain a big picture as well as the progress of the task. Always refer to the Scratchpad when you plan the next step.
+
+# Project Requirements
+
+## Code Organization
+- Each data source and database module should be completely independent
+- Separate modules for each data table to avoid code coupling
+- No module should affect the functionality of other modules
+- Maintain clean separation of concerns
+
+## Code Style
+- All code, comments, database fields, and documentation must be in English
+- No mixing of Chinese and English in code or documentation
+- Keep naming conventions consistent throughout the project
+
+## Execution Requirements
+- All data scraping and import processes must show clear progress status
+- Include logging for all operations
+- Display clear success/failure messages
+- Show progress bars for long-running operations
+
+## Database Design
+- Each table should have clear, English-named fields
+- Use consistent naming conventions across all tables
+- Include proper documentation for all database schemas
+
+## Logging and Monitoring
+- Log all operations with appropriate detail level
+- Include timestamp and operation status
+- Show clear progress indicators for all operations
+- Maintain separate logs for different operations
+
+# Lessons
+
+## 项目路径 - 重要！
+- 项目根目录是 `E:\Cursor_AI\REAL_ANALYTICS_DB`（使用反斜杠！）
+- 不要使用 `E:/Cursor_AI/REAL_ANALYTICS_DB`（错误的正斜杠）
+- 所有相对路径都应该相对于这个目录
+- 在 PowerShell 中必须使用反斜杠 `\`
+
+## 用户指定的经验教训
+- 使用 Python venv 在 ./venv 目录
+- 在程序输出中包含调试信息
+- 在编辑文件前先阅读文件内容
+- 所有代码、注释和文档必须使用英文
+- 每个数据源模块必须独立
+- 所有操作必须显示清晰的进度状态
+
+# Scratchpad
+
+## 当前任务：完善数据库表更新逻辑
+
+### 任务分析
+需要修改数据库更新逻辑，确保：
+1. 正确处理新的 locations
+2. 正确处理新的月份数据
+3. 对历史数据的更新需要特殊处理：
+   - 只有当新数据不为空时才更新
+   - 如果新数据为空，保留原有数据
+
+### 进度
+[X] 分析当前实现
+[ ] 修改 SupabaseClient 类的 insert_rent_estimates 方法
+  [ ] 添加获取现有数据的功能
+  [ ] 添加数据比较逻辑
+  [ ] 实现条件更新
+[ ] 添加日志记录
+[ ] 测试新的更新逻辑
+
+### 下一步
+1. 修改 SupabaseClient 类
+2. 添加数据比较功能
+3. 实现条件更新逻辑
+4. 添加详细的日志记录 

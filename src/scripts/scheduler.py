@@ -32,14 +32,7 @@ logger = logging.getLogger(__name__)
 def update_database_view(config: Config):
     """Update the database view for rent estimates."""
     try:
-        # 使用 service role key 来更新视图
-        if not config.supabase_service_role_key:
-            raise Exception("SUPABASE_SERVICE_ROLE_KEY is required for updating database view")
-            
-        db = SupabaseClient(
-            url=config.supabase_url,
-            key=config.supabase_service_role_key
-        )
+        db = SupabaseClient(config.supabase_url, config.supabase_key)
         
         # SQL to check if view exists and refresh it
         sql = """
@@ -70,10 +63,6 @@ def run_daily_update():
         
         # Load configuration
         config = Config.from_env()
-        
-        # 检查必要的密钥
-        if not config.supabase_service_role_key:
-            raise Exception("SUPABASE_SERVICE_ROLE_KEY is required for data updates")
         
         # Run the update pipeline
         scrape_result = scrape_main()

@@ -1,10 +1,11 @@
 """Supabase database client module."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 from datetime import datetime
 import pytz
 
+import pandas as pd
 import requests
 from supabase import Client, create_client
 
@@ -23,15 +24,28 @@ class SupabaseClient:
             url: Supabase project URL
             key: Supabase API key (anon key for read-only, service role key for write access)
         """
-        self.client: Client = create_client(url, key)
-        self.url = url.rstrip('/')
-        self.key = key
-        self.headers = {
-            'apikey': self.key,
-            'Authorization': f'Bearer {self.key}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-        }
+        try:
+            logger.info(f"Initializing Supabase client with URL: {url}")
+            logger.info(f"Key type: {'service_role' if 'service_role' in key else 'anon'}")
+            
+            # 创建客户端
+            self.client: Client = create_client(url, key)
+            self.url = url.rstrip('/')
+            self.key = key
+            
+            # 设置请求头
+            self.headers = {
+                'apikey': self.key,
+                'Authorization': f'Bearer {self.key}',
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            }
+            
+            logger.info("Supabase client initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Supabase client: {str(e)}")
+            raise DatabaseError(f"Failed to initialize Supabase client: {str(e)}") from e
         
     def execute_sql(self, sql: str) -> None:
         """
@@ -44,6 +58,9 @@ class SupabaseClient:
             DatabaseError: If query execution fails
         """
         try:
+            logger.info("Executing SQL query")
+            logger.debug(f"SQL: {sql}")
+            
             # 使用 SQL 编辑器 API 端点
             response = requests.post(
                 f"{self.url}/rest/v1/rpc/raw_sql",
@@ -55,92 +72,153 @@ class SupabaseClient:
                 error_text = response.text if response.text else f"HTTP {response.status_code}"
                 raise Exception(error_text)
                 
+            logger.info("SQL query executed successfully")
+            
         except Exception as e:
+            logger.error(f"Failed to execute SQL: {str(e)}")
             raise DatabaseError(f"Failed to execute SQL: {str(e)}") from e
             
-    def create_rent_estimates_table(self) -> None:
+    def get_existing_records(self, location_fips_codes: Set[str], year_months: Set[str]) -> Dict[Tuple[str, str], Dict]:
         """
-        Create the rent estimates table if it doesn't exist.
+        Get existing records for the given location_fips_codes and year_months.
         
+        Args:
+            location_fips_codes: Set of location FIPS codes
+            year_months: Set of year_month values
+            
+        Returns:
+            Dict[Tuple[str, str], Dict]: Dictionary mapping (location_fips_code, year_month) to record data
+            
         Raises:
-            DatabaseError: If table creation fails
+            DatabaseError: If query fails
         """
         try:
-            # Using raw SQL for table creation
-            sql = """
-            CREATE TABLE IF NOT EXISTS apartment_list_rent_estimates (
-                location_name TEXT NOT NULL,
-                location_type TEXT NOT NULL,
-                location_fips_code TEXT NOT NULL,
-                population BIGINT,
-                state TEXT,
-                county TEXT,
-                metro TEXT,
-                year_month TEXT NOT NULL,
-                rent_estimate_overall DOUBLE PRECISION,
-                rent_estimate_1br DOUBLE PRECISION,
-                rent_estimate_2br DOUBLE PRECISION,
-                last_update_time TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'),
-                PRIMARY KEY (location_fips_code, year_month)
-            );
-            """
+            logger.info(f"Fetching existing records for {len(location_fips_codes)} locations and {len(year_months)} months")
+            logger.debug(f"Location FIPS codes: {location_fips_codes}")
+            logger.debug(f"Year months: {year_months}")
             
-            # Create the table using postgrest API
-            headers = {
-                'apikey': self.key,
-                'Authorization': f'Bearer {self.key}',
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-            }
+            # 使用 Supabase 客户端查询
+            response = self.client.table('apartment_list_rent_estimates')\
+                .select('*')\
+                .in_('location_fips_code', list(location_fips_codes))\
+                .in_('year_month', list(year_months))\
+                .execute()
             
-            # Create the table using direct SQL
-            response = requests.post(
-                f"{self.url}/rest/v1/rpc/raw_sql",
-                headers=headers,
-                json={'sql': sql}
-            )
-            
-            if response.status_code >= 400:
-                raise Exception(f"HTTP {response.status_code}: {response.text}")
+            # 将结果转换为字典
+            existing_records = {}
+            for record in response.data:
+                key = (record['location_fips_code'], record['year_month'])
+                existing_records[key] = record
                 
-            logger.info("Rent estimates table created or already exists")
+            logger.info(f"Found {len(existing_records)} existing records")
+            logger.debug(f"Existing records: {existing_records}")
+            return existing_records
             
         except Exception as e:
-            raise DatabaseError(f"Failed to create rent estimates table: {str(e)}") from e
+            logger.error(f"Failed to get existing records: {str(e)}")
+            raise DatabaseError(f"Failed to get existing records: {str(e)}") from e
             
     def insert_rent_estimates(self, records: List[Dict]) -> int:
         """
         Insert rent estimates records into the database.
         
+        处理逻辑：
+        1. 新的locations：添加所有相关数据
+        2. 现有locations的新月份：添加新月份数据
+        3. 现有数据的更新：
+           - 如果新数据不为空（非None且非0），则更新
+           - 如果新数据为空，保留原有数据
+        
         Args:
             records: List of rent estimates records
             
         Returns:
-            int: Number of records inserted
+            int: Number of records inserted/updated
             
         Raises:
             DatabaseError: If insertion fails
         """
         try:
-            logger.info(f"Inserting {len(records)} records")
+            logger.info(f"Processing {len(records)} records")
             
             # 获取美国东部时区
             eastern = pytz.timezone('America/New_York')
             current_time = datetime.now(eastern)
             
-            # 为每条记录添加时间戳
+            # 收集所有的 location_fips_codes 和 year_months
+            location_fips_codes = {r['location_fips_code'] for r in records}
+            year_months = {r['year_month'] for r in records}
+            
+            # 获取现有记录
+            existing_records = self.get_existing_records(location_fips_codes, year_months)
+            
+            # 处理每条记录
+            records_to_upsert = []
+            stats = {
+                'new_locations': 0,
+                'new_months': 0,
+                'updated': 0,
+                'preserved': 0
+            }
+            
             for record in records:
+                key = (record['location_fips_code'], record['year_month'])
                 record['last_update_time'] = current_time.isoformat()
-            
-            result = self.client.table('apartment_list_rent_estimates').upsert(
-                records,
-                on_conflict='location_fips_code,year_month'
-            ).execute()
-            
-            count = len(result.data)
-            logger.info(f"Successfully inserted/updated {count} records")
-            return count
-            
+                
+                if key not in existing_records:
+                    # 情况1和2：新的location或新的月份
+                    records_to_upsert.append(record)
+                    if any(k[0] == key[0] for k in existing_records):
+                        logger.info(f"Adding new month {record['year_month']} for location {record['location_name']}")
+                        stats['new_months'] += 1
+                    else:
+                        logger.info(f"Adding new location: {record['location_name']}")
+                        stats['new_locations'] += 1
+                else:
+                    # 情况3：更新现有记录
+                    existing = existing_records[key]
+                    merged_record = existing.copy()
+                    merged_record.update({
+                        'last_update_time': current_time.isoformat()
+                    })
+                    
+                    # 检查每个租金字段
+                    has_updates = False
+                    for field in ['rent_estimate_overall', 'rent_estimate_1br', 'rent_estimate_2br']:
+                        new_value = record.get(field)
+                        if new_value is not None and new_value != 0:  # 新值不为空且不为0
+                            merged_record[field] = new_value
+                            has_updates = True
+                            logger.debug(f"Updating {field} for {record['location_name']} {record['year_month']}: {existing.get(field)} -> {new_value}")
+                    
+                    if has_updates:
+                        records_to_upsert.append(merged_record)
+                        stats['updated'] += 1
+                        logger.info(f"Updating existing record for {record['location_name']} {record['year_month']}")
+                    else:
+                        stats['preserved'] += 1
+                        logger.debug(f"Preserving existing record for {record['location_name']} {record['year_month']}")
+                        
+            # 执行批量更新
+            if records_to_upsert:
+                result = self.client.table('apartment_list_rent_estimates').upsert(
+                    records_to_upsert,
+                    on_conflict='location_fips_code,year_month'
+                ).execute()
+                
+                logger.info(
+                    f"Update statistics:\n"
+                    f"- New locations: {stats['new_locations']}\n"
+                    f"- New months for existing locations: {stats['new_months']}\n"
+                    f"- Updated records: {stats['updated']}\n"
+                    f"- Preserved records: {stats['preserved']}"
+                )
+                
+                return len(records_to_upsert)
+            else:
+                logger.info("No records need to be updated")
+                return 0
+                
         except Exception as e:
             raise DatabaseError(f"Failed to insert rent estimates: {str(e)}") from e
             

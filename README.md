@@ -44,48 +44,6 @@ REAL_ANALYTICS_DB/
    python src/scripts/setup.py
    ```
 
-## Security Configuration
-
-### Local Development
-
-1. Create a `.env` file based on `.env.example`
-2. Add your Supabase configuration:
-   ```
-   SUPABASE_URL=your_project_url
-   SUPABASE_ANON_KEY=your_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-   ```
-3. Never commit the `.env` file to version control
-
-### GitHub Configuration
-
-1. Go to your GitHub repository settings
-2. Navigate to "Settings" -> "Secrets and variables" -> "Actions"
-3. Add the following secrets:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `RENDER_API_KEY`
-   - `RENDER_SERVICE_ID`
-
-### Render Deployment
-
-1. Log in to your Render dashboard
-2. Create a new Web Service
-3. Connect to your GitHub repository
-4. Add the following environment variables:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-5. Mark all environment variables as "Secret"
-
-## Database Security
-
-The database uses Row Level Security (RLS) with the following policies:
-- Read access: Available to authenticated and anonymous users
-- Write access: Restricted to service role only
-- All operations are logged with timestamps
-
 ## Development
 
 - Follow PEP 8 style guide
