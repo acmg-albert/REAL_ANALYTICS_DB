@@ -3,6 +3,8 @@
 import logging
 import os
 from pathlib import Path
+import pandas as pd
+from tqdm import tqdm
 
 from src.database import SupabaseClient
 from src.utils.config import Config
@@ -34,6 +36,29 @@ def find_latest_processed_file(data_dir: Path) -> Path:
         
     # 如果还是没有找到，返回默认路径
     return data_dir / 'processed' / 'rent_estimates.csv'
+
+def import_data_in_batches(db: SupabaseClient, df: pd.DataFrame, batch_size: int = 1000) -> int:
+    """Import data in batches to avoid memory issues."""
+    total_rows = len(df)
+    imported_count = 0
+    
+    # 使用tqdm创建进度条
+    with tqdm(total=total_rows, desc="Importing data") as pbar:
+        for start_idx in range(0, total_rows, batch_size):
+            end_idx = min(start_idx + batch_size, total_rows)
+            batch_df = df.iloc[start_idx:end_idx]
+            
+            # 转换为字典列表
+            records = batch_df.to_dict('records')
+            
+            # 使用upsert导入数据
+            result = db.insert_rent_estimates(records)
+            
+            # 更新进度
+            imported_count += result
+            pbar.update(len(batch_df))
+            
+    return imported_count
 
 def main() -> int:
     """Main function to import rent estimates data."""
@@ -68,20 +93,27 @@ def main() -> int:
                 logger.info(f"- {file.relative_to(data_dir)}")
             return 1
             
-        # Read and import the data
-        logger.info(f"Starting data import from {processed_file}")
+        # Read the CSV file
+        logger.info(f"Reading data from {processed_file}")
+        df = pd.read_csv(processed_file)
         
-        # Use COPY command for efficient data import
-        with open(processed_file, 'r', encoding='utf-8') as f:
-            db.copy_from_csv(
-                table_name='apartment_list_rent_estimates',
-                csv_file=f,
-                columns=['location_name', 'location_type', 'location_fips_code',
-                        'population', 'state', 'county', 'metro', 'year_month',
-                        'rent_estimate_overall', 'rent_estimate_1br', 'rent_estimate_2br']
-            )
-            
-        logger.info("Data import completed successfully")
+        # 处理可能的空值
+        numeric_columns = ['population', 'rent_estimate_overall', 'rent_estimate_1br', 'rent_estimate_2br']
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = df[col].fillna(0)
+                
+        string_columns = ['location_name', 'location_type', 'location_fips_code', 
+                         'state', 'county', 'metro', 'year_month']
+        for col in string_columns:
+            if col in df.columns:
+                df[col] = df[col].fillna('')
+                
+        # Import data in batches
+        logger.info(f"Starting data import from {processed_file}")
+        total_imported = import_data_in_batches(db, df)
+        
+        logger.info(f"Successfully imported {total_imported} records")
         return 0
         
     except Exception as e:
