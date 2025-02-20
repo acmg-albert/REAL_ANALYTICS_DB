@@ -4,7 +4,7 @@ services:
     env: python
     buildCommand: |
       python -m pip install --upgrade pip
-      mkdir -p data logs
+      mkdir -p data/raw data/processed logs
       pip install -r requirements.txt
     startCommand: python -m src.scripts.scheduler
     envVars:
@@ -15,5 +15,7 @@ services:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
     autoDeploy: true 
