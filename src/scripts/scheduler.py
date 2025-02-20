@@ -2,18 +2,23 @@
 
 import logging
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
+
+# 添加项目根目录到 Python 路径
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from flask import Flask
 
-from ..database import SupabaseClient
-from ..utils.config import Config
-from .scrape_rent_estimates import main as scrape_main
-from .process_rent_estimates import main as process_main
-from .import_rent_estimates import main as import_main
+from src.database import SupabaseClient
+from src.utils.config import Config
+from src.scripts.scrape_rent_estimates import main as scrape_main
+from src.scripts.process_rent_estimates import main as process_main
+from src.scripts.import_rent_estimates import main as import_main
 
 # 创建Flask应用（Render需要一个web服务）
 app = Flask(__name__)
