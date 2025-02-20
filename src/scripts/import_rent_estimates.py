@@ -24,8 +24,11 @@ def main() -> int:
         # Load configuration
         config = Config.from_env()
         
-        # Initialize database client
-        db = SupabaseClient(config.supabase_url, config.supabase_key)
+        # Initialize database client with service role key for write access
+        db = SupabaseClient(
+            url=config.supabase_url,
+            key=config.supabase_service_role_key  # 使用service_role_key进行写操作
+        )
         
         # Get the data directory
         data_dir = Path(__file__).parent.parent.parent / 'data'

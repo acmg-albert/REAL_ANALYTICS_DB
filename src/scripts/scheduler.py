@@ -37,7 +37,11 @@ logger = logging.getLogger(__name__)
 def update_database_view(config: Config):
     """Update the database view for rent estimates."""
     try:
-        db = SupabaseClient(config.supabase_url, config.supabase_key)
+        # 使用service_role_key进行数据库操作
+        db = SupabaseClient(
+            url=config.supabase_url,
+            key=config.supabase_service_role_key
+        )
         
         # SQL to check if view exists and refresh it
         sql = """
