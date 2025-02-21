@@ -22,6 +22,9 @@ from src.scripts.import_rent_estimates import main as import_rent_main
 from src.scripts.scrape_vacancy_index import main as scrape_vacancy_main
 from src.scripts.process_vacancy_index import main as process_vacancy_main
 from src.scripts.import_vacancy_index import main as import_vacancy_main
+from src.scripts.scrape_time_on_market import main as scrape_time_on_market_main
+from src.scripts.process_time_on_market import main as process_time_on_market_main
+from src.scripts.import_time_on_market import main as import_time_on_market_main
 
 # 创建Flask应用（Render需要一个web服务）
 app = Flask(__name__)
@@ -64,6 +67,14 @@ def update_database_views(config: Config):
                 WHERE matviewname = 'db_view_apartment_list_vacancy_index_1_3'
             ) THEN
                 REFRESH MATERIALIZED VIEW db_view_apartment_list_vacancy_index_1_3;
+            END IF;
+            
+            IF EXISTS (
+                SELECT 1 
+                FROM pg_matviews 
+                WHERE matviewname = 'db_view_apartment_list_time_on_market_1_3'
+            ) THEN
+                REFRESH MATERIALIZED VIEW db_view_apartment_list_time_on_market_1_3;
             END IF;
         END $$;
         """
@@ -111,6 +122,20 @@ def run_daily_update():
         import_result = import_vacancy_main()
         if import_result != 0:
             raise Exception("Vacancy index import failed")
+            
+        # Run the time on market update pipeline
+        logger.info("Updating time on market data...")
+        scrape_result = scrape_time_on_market_main()
+        if scrape_result != 0:
+            raise Exception("Time on market scraping failed")
+            
+        process_result = process_time_on_market_main()
+        if process_result != 0:
+            raise Exception("Time on market processing failed")
+            
+        import_result = import_time_on_market_main()
+        if import_result != 0:
+            raise Exception("Time on market import failed")
             
         # Update the database views
         update_database_views(config)

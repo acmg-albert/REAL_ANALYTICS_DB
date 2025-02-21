@@ -140,6 +140,20 @@ class SupabaseClient:
             .execute()
         return result.data
     
+    def insert_time_on_market(self, records: List[Dict]) -> Dict:
+        """Insert or update time on market records into Supabase.
+        
+        Args:
+            records: List of time on market records to insert or update
+            
+        Returns:
+            Dict containing the upsert operation result
+        """
+        result = self.client.table('apartment_list_time_on_market')\
+            .upsert(records, on_conflict='location_fips_code,year_month')\
+            .execute()
+        return result.data
+    
     def get_latest_rent_estimate_date(self) -> Optional[str]:
         """Get the most recent date from rent estimates table.
         
@@ -163,6 +177,22 @@ class SupabaseClient:
             The latest year_month value or None if table is empty
         """
         result = self.client.table('apartment_list_vacancy_index')\
+            .select('year_month')\
+            .order('year_month', desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if result.data:
+            return result.data[0]['year_month']
+        return None
+    
+    def get_latest_time_on_market_date(self) -> Optional[str]:
+        """Get the most recent date from time on market table.
+        
+        Returns:
+            The latest year_month value or None if table is empty
+        """
+        result = self.client.table('apartment_list_time_on_market')\
             .select('year_month')\
             .order('year_month', desc=True)\
             .limit(1)\

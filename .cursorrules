@@ -47,7 +47,20 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - 不要使用 `E:/Cursor_AI/REAL_ANALYTICS_DB`（错误的正斜杠）
 - 所有相对路径都应该相对于这个目录
 - 在 PowerShell 中必须使用反斜杠 `\`
-- 如果找不到文件，首先检查是否跳出了项目目录！不要在项目目录外创建文件！
+
+## GitHub 更新规则 - 重要！
+- 每次提交到 GitHub 前必须检查并处理敏感信息：
+  - 数据库 URL（例如 Supabase URL）
+  - API 密钥（例如 Supabase anon key, service role key）
+  - 环境变量文件中的敏感信息
+  - 测试文件中的示例数据
+  - 日志文件中的敏感信息
+- 处理方法：
+  - 使用占位符替换敏感信息（例如：your_supabase_url）
+  - 确保 .env 文件已在 .gitignore 中
+  - 检查所有包含敏感信息的文件
+  - 在提交前使用 git diff 检查变更
+  - 使用 .env.example 作为环境变量模板
 
 ## 用户指定的经验教训
 - 使用 Python venv 在 ./venv 目录
@@ -59,59 +72,55 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 
 # Scratchpad
 
-## 当前任务：实现Apartment List空置率数据的抓取和导入
+## 当前任务：创建Time On Market数据导入功能
 
 ### 任务分析
-这是一个数据抓取和导入任务，需要完成以下主要部分：
-1. 创建Supabase表结构（已完成）
-2. 实现数据抓取模块（已完成）
-3. 实现数据处理模块（已完成）
-4. 实现数据导入模块（已完成）
-5. 更新调度器（已完成）
+需要完成以下主要部分：
+1. 创建数据库表
+2. 创建数据导入脚本
+3. 创建数据验证和转换功能
+4. 添加Supabase客户端支持
 
 ### 进度
-[X] 创建Supabase表结构
-[X] 创建数据抓取模块
-  [X] 创建vacancy_index_scraper.py
-  [X] 创建scrape_vacancy_index.py测试脚本
-[X] 创建数据处理模块
-  [X] 创建vacancy_index_processor.py
-  [X] 创建process_vacancy_index.py测试脚本
-[X] 创建数据导入模块
-  [X] 创建import_vacancy_index.py
-  [X] 添加数据验证和转换逻辑
-[X] 更新调度器
-  [X] 在scheduler.py中添加空置率数据的抓取、处理和导入任务
-
-### 完成情况
-1. 创建了所有必要的文件：
-   - vacancy_index_scraper.py：实现数据抓取
-   - scrape_vacancy_index.py：抓取脚本
-   - vacancy_index_processor.py：数据处理
-   - process_vacancy_index.py：处理脚本
-   - import_vacancy_index.py：数据导入
-   - supabase_client.py：数据库操作
-2. 更新了scheduler.py以包含新的任务
-3. 实现了完整的数据验证和错误处理
-4. 保持了与现有代码结构的一致性
+[X] 创建数据库表
+  [X] 定义表结构
+  [X] 创建索引
+  [X] 设置RLS策略
+[X] 创建数据导入脚本
+  [X] 实现文件查找功能
+  [X] 实现数据验证
+  [X] 实现数据转换
+  [X] 实现批量导入
+[X] 添加Supabase客户端支持
+  [X] 添加insert_time_on_market方法
+  [X] 添加get_latest_time_on_market_date方法
 
 ### 下一步
-1. 本地测试整个流程：
-   ```powershell
-   # 设置PYTHONPATH
-   $env:PYTHONPATH="E:\Cursor_AI\REAL_ANALYTICS_DB"
+1. 测试数据导入功能
+2. 添加到调度器中
+3. 更新文档
 
-   # 测试数据抓取
-   python -m src.scripts.scrape_vacancy_index
+# Lessons
 
-   # 测试数据处理
-   python -m src.scripts.process_vacancy_index
+## 代码组织规范
+- 保持与现有代码结构一致
+- 不要创建新的目录结构，除非确实需要
+- 导入脚本应该放在 `scripts` 目录下
+- 数据库表创建脚本应该放在 `database/sql` 目录下
+- 使用统一的命名规范（例如：`*_processed_*.csv` 作为处理后的文件名模式）
 
-   # 测试数据导入
-   python -m src.scripts.import_vacancy_index
+## 数据导入规范
+- 使用批量导入提高性能
+- 添加进度条显示导入进度
+- 详细的错误处理和日志记录
+- 数据验证应该包括：
+  - 必需字段检查
+  - 数据类型转换
+  - 空值处理
+  - 值范围验证
 
-   # 测试调度器
-   python -m src.scripts.scheduler
-   ```
-2. 部署到生产环境
-3. 监控第一次运行的结果 
+## 数据库操作规范
+- 使用upsert而不是insert以避免重复
+- 使用service_role_key进行数据导入
+- 添加合适的索引提高查询性能
+- 实现RLS策略保护数据安全 

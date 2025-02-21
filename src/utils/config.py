@@ -42,6 +42,13 @@ class Config:
     # Logging
     log_level: str
     
+    # Time On Market Data Validation
+    min_time_on_market_rows: int = 100
+    min_time_on_market_base_columns: int = 7  # 基本列：location_name, location_type, location_fips_code, population, state, county, metro
+    min_time_on_market_months: int = 73  # 最少应该有的月份数（从2019年1月到2025年1月）
+    earliest_time_on_market_year: int = 2019
+    earliest_time_on_market_month: int = 1
+    
     # Optional configurations
     apartment_list_api_key: Optional[str] = None
     supabase_service_role_key: Optional[str] = None
