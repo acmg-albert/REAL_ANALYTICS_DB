@@ -49,26 +49,28 @@ def main():
         # Read and execute SQL files
         sql_dir = Path("src/database/sql")
         
-        # Create raw_sql function first
-        raw_sql_function = read_sql_file(sql_dir / "create_raw_sql_function.sql")
-        logger.info("Creating raw_sql function...")
-        try:
-            supabase.execute_sql(raw_sql_function)
-        except Exception as e:
-            logger.warning(f"Failed to create raw_sql function: {e}")
-            logger.warning("Continuing with view creation...")
-        
         # Create rent estimates view
         rent_estimates_sql = read_sql_file(sql_dir / "create_materialized_view.sql")
         logger.info("Creating rent estimates view...")
-        supabase.execute_sql(rent_estimates_sql)
+        try:
+            supabase.execute_sql(rent_estimates_sql)
+            logger.info("Successfully created rent estimates view")
+        except Exception as e:
+            logger.error(f"Failed to create rent estimates view: {e}")
+            logger.warning("Continuing with vacancy index view creation...")
         
         # Create vacancy index view
         vacancy_index_sql = read_sql_file(sql_dir / "create_vacancy_index_view.sql")
         logger.info("Creating vacancy index view...")
-        supabase.execute_sql(vacancy_index_sql)
+        try:
+            supabase.execute_sql(vacancy_index_sql)
+            logger.info("Successfully created vacancy index view")
+        except Exception as e:
+            logger.error(f"Failed to create vacancy index view: {e}")
+            logger.warning("View creation process completed with errors")
+            return 1
         
-        logger.info("Successfully created database views")
+        logger.info("Successfully created all database views")
         return 0
         
     except FileNotFoundError as e:

@@ -28,8 +28,46 @@ class SupabaseClient:
         Returns:
             Dict containing the query result
         """
-        result = self.client.rpc('raw_sql', {'query': sql}).execute()
-        return result.data
+        try:
+            # 首先尝试使用 raw_sql 函数
+            result = self.client.rpc('raw_sql', {'command': sql}).execute()
+            return result.data
+        except Exception as e:
+            logger.warning(f"Failed to execute SQL using raw_sql function: {e}")
+            logger.info("Attempting to create raw_sql function...")
+            
+            # 创建 raw_sql 函数
+            create_function_sql = """
+            CREATE OR REPLACE FUNCTION raw_sql(command text)
+            RETURNS json
+            LANGUAGE plpgsql
+            SECURITY DEFINER
+            AS $$
+            BEGIN
+                RETURN (SELECT json_agg(t) FROM (SELECT * FROM json_to_recordset(command::json) as t) as t);
+            EXCEPTION WHEN others THEN
+                EXECUTE command;
+                RETURN '{"status": "success"}'::json;
+            END;
+            $$;
+            """
+            
+            # 直接执行 SQL 来创建函数
+            try:
+                response = self.client.rest.post(
+                    'rpc/raw_sql',
+                    json={'command': create_function_sql}
+                )
+                if response.status_code >= 400:
+                    raise Exception(f"HTTP {response.status_code}: {response.text}")
+                    
+                # 再次尝试执行原始 SQL
+                result = self.client.rpc('raw_sql', {'command': sql}).execute()
+                return result.data
+                
+            except Exception as e2:
+                logger.error(f"Failed to create raw_sql function: {e2}")
+                raise
     
     def insert_rent_estimates(self, records: List[Dict]) -> Dict:
         """Insert rent estimates records into Supabase.
