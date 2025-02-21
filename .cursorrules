@@ -47,6 +47,7 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - 不要使用 `E:/Cursor_AI/REAL_ANALYTICS_DB`（错误的正斜杠）
 - 所有相对路径都应该相对于这个目录
 - 在 PowerShell 中必须使用反斜杠 `\`
+- 如果找不到文件，首先检查是否跳出了项目目录！不要在项目目录外创建文件！
 
 ## 用户指定的经验教训
 - 使用 Python venv 在 ./venv 目录
@@ -58,27 +59,59 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 
 # Scratchpad
 
-## 当前任务：完善数据库表更新逻辑
+## 当前任务：实现Apartment List空置率数据的抓取和导入
 
 ### 任务分析
-需要修改数据库更新逻辑，确保：
-1. 正确处理新的 locations
-2. 正确处理新的月份数据
-3. 对历史数据的更新需要特殊处理：
-   - 只有当新数据不为空时才更新
-   - 如果新数据为空，保留原有数据
+这是一个数据抓取和导入任务，需要完成以下主要部分：
+1. 创建Supabase表结构（已完成）
+2. 实现数据抓取模块（已完成）
+3. 实现数据处理模块（已完成）
+4. 实现数据导入模块（已完成）
+5. 更新调度器（已完成）
 
 ### 进度
-[X] 分析当前实现
-[ ] 修改 SupabaseClient 类的 insert_rent_estimates 方法
-  [ ] 添加获取现有数据的功能
-  [ ] 添加数据比较逻辑
-  [ ] 实现条件更新
-[ ] 添加日志记录
-[ ] 测试新的更新逻辑
+[X] 创建Supabase表结构
+[X] 创建数据抓取模块
+  [X] 创建vacancy_index_scraper.py
+  [X] 创建scrape_vacancy_index.py测试脚本
+[X] 创建数据处理模块
+  [X] 创建vacancy_index_processor.py
+  [X] 创建process_vacancy_index.py测试脚本
+[X] 创建数据导入模块
+  [X] 创建import_vacancy_index.py
+  [X] 添加数据验证和转换逻辑
+[X] 更新调度器
+  [X] 在scheduler.py中添加空置率数据的抓取、处理和导入任务
+
+### 完成情况
+1. 创建了所有必要的文件：
+   - vacancy_index_scraper.py：实现数据抓取
+   - scrape_vacancy_index.py：抓取脚本
+   - vacancy_index_processor.py：数据处理
+   - process_vacancy_index.py：处理脚本
+   - import_vacancy_index.py：数据导入
+   - supabase_client.py：数据库操作
+2. 更新了scheduler.py以包含新的任务
+3. 实现了完整的数据验证和错误处理
+4. 保持了与现有代码结构的一致性
 
 ### 下一步
-1. 修改 SupabaseClient 类
-2. 添加数据比较功能
-3. 实现条件更新逻辑
-4. 添加详细的日志记录 
+1. 本地测试整个流程：
+   ```powershell
+   # 设置PYTHONPATH
+   $env:PYTHONPATH="E:\Cursor_AI\REAL_ANALYTICS_DB"
+
+   # 测试数据抓取
+   python -m src.scripts.scrape_vacancy_index
+
+   # 测试数据处理
+   python -m src.scripts.process_vacancy_index
+
+   # 测试数据导入
+   python -m src.scripts.import_vacancy_index
+
+   # 测试调度器
+   python -m src.scripts.scheduler
+   ```
+2. 部署到生产环境
+3. 监控第一次运行的结果 

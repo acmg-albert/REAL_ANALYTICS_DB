@@ -16,9 +16,12 @@ from flask import Flask
 
 from src.database import SupabaseClient
 from src.utils.config import Config
-from src.scripts.scrape_rent_estimates import main as scrape_main
-from src.scripts.process_rent_estimates import main as process_main
-from src.scripts.import_rent_estimates import main as import_main
+from src.scripts.scrape_rent_estimates import main as scrape_rent_main
+from src.scripts.process_rent_estimates import main as process_rent_main
+from src.scripts.import_rent_estimates import main as import_rent_main
+from src.scripts.scrape_vacancy_index import main as scrape_vacancy_main
+from src.scripts.process_vacancy_index import main as process_vacancy_main
+from src.scripts.import_vacancy_index import main as import_vacancy_main
 
 # 创建Flask应用（Render需要一个web服务）
 app = Flask(__name__)
@@ -34,8 +37,8 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def update_database_view(config: Config):
-    """Update the database view for rent estimates."""
+def update_database_views(config: Config):
+    """Update all database views."""
     try:
         # 使用service_role_key进行数据库操作
         db = SupabaseClient(
@@ -43,7 +46,7 @@ def update_database_view(config: Config):
             key=config.supabase_service_role_key
         )
         
-        # SQL to check if view exists and refresh it
+        # SQL to check if views exist and refresh them
         sql = """
         DO $$
         BEGIN
@@ -54,15 +57,23 @@ def update_database_view(config: Config):
             ) THEN
                 REFRESH MATERIALIZED VIEW db_view_apartment_list_rent_estimates_1_3;
             END IF;
+            
+            IF EXISTS (
+                SELECT 1 
+                FROM pg_matviews 
+                WHERE matviewname = 'db_view_apartment_list_vacancy_index_1_3'
+            ) THEN
+                REFRESH MATERIALIZED VIEW db_view_apartment_list_vacancy_index_1_3;
+            END IF;
         END $$;
         """
         
         # Execute the SQL
         db.execute_sql(sql)
-        logger.info("Successfully updated database view")
+        logger.info("Successfully updated database views")
         
     except Exception as e:
-        logger.error(f"Failed to update database view: {e}")
+        logger.error(f"Failed to update database views: {e}")
         raise
 
 def run_daily_update():
@@ -73,21 +84,36 @@ def run_daily_update():
         # Load configuration
         config = Config.from_env()
         
-        # Run the update pipeline
-        scrape_result = scrape_main()
+        # Run the rent estimates update pipeline
+        logger.info("Updating rent estimates data...")
+        scrape_result = scrape_rent_main()
         if scrape_result != 0:
-            raise Exception("Scraping failed")
+            raise Exception("Rent estimates scraping failed")
             
-        process_result = process_main()
+        process_result = process_rent_main()
         if process_result != 0:
-            raise Exception("Processing failed")
+            raise Exception("Rent estimates processing failed")
             
-        import_result = import_main()
+        import_result = import_rent_main()
         if import_result != 0:
-            raise Exception("Import failed")
+            raise Exception("Rent estimates import failed")
+        
+        # Run the vacancy index update pipeline
+        logger.info("Updating vacancy index data...")
+        scrape_result = scrape_vacancy_main()
+        if scrape_result != 0:
+            raise Exception("Vacancy index scraping failed")
             
-        # Update the database view
-        update_database_view(config)
+        process_result = process_vacancy_main()
+        if process_result != 0:
+            raise Exception("Vacancy index processing failed")
+            
+        import_result = import_vacancy_main()
+        if import_result != 0:
+            raise Exception("Vacancy index import failed")
+            
+        # Update the database views
+        update_database_views(config)
         
         logger.info("Daily update completed successfully")
         

@@ -86,11 +86,14 @@ class Config:
         Raises:
             ConfigurationError: If required configuration is missing
         """
+        # 强制重新加载环境变量
+        load_dotenv(override=True)
+        
         if env_file:
             if not os.path.exists(env_file):
                 raise ConfigurationError(f"Environment file not found: {env_file}")
             print(f"Loading environment variables from: {env_file}")
-            load_dotenv(env_file)
+            load_dotenv(env_file, override=True)
             
         try:
             # Create data and log directories
