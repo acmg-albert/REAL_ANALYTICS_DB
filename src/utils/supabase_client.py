@@ -44,23 +44,39 @@ class SupabaseClient:
             SECURITY DEFINER
             AS $$
             BEGIN
-                RETURN (SELECT json_agg(t) FROM (SELECT * FROM json_to_recordset(command::json) as t) as t);
-            EXCEPTION WHEN others THEN
                 EXECUTE command;
                 RETURN '{"status": "success"}'::json;
+            EXCEPTION WHEN others THEN
+                RETURN json_build_object(
+                    'status', 'error',
+                    'message', SQLERRM,
+                    'detail', SQLSTATE
+                );
             END;
             $$;
             """
             
             # 直接执行 SQL 来创建函数
             try:
+                # 使用 REST API 直接执行 SQL
+                headers = {
+                    'apikey': self.key,
+                    'Authorization': f'Bearer {self.key}',
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                }
+                
                 response = self.client.rest.post(
-                    'rpc/raw_sql',
-                    json={'command': create_function_sql}
+                    'rest/v1/sql',
+                    headers=headers,
+                    json={'query': create_function_sql}
                 )
+                
                 if response.status_code >= 400:
                     raise Exception(f"HTTP {response.status_code}: {response.text}")
                     
+                logger.info("Successfully created raw_sql function")
+                
                 # 再次尝试执行原始 SQL
                 result = self.client.rpc('raw_sql', {'command': sql}).execute()
                 return result.data
