@@ -20,4 +20,13 @@ services:
         sync: false
       - key: PORT
         value: 8000
-    autoDeploy: true 
+    autoDeploy: true
+    excludeFiles:
+      - tests/**/*
+      - **/*test*.py
+      - **/*_test.py
+      - test_*.py
+      - pytest.ini
+      - .pytest_cache/**/*
+      - src/scripts/cleanup_*.py
+      - src/scripts/check_*.py 
