@@ -47,7 +47,33 @@ def main():
         )
         
         # Read and execute SQL files
-        sql_dir = Path("src/database/sql")
+        sql_dir = Path(__file__).parent.parent / "database" / "sql"
+        
+        # First create raw_sql function
+        logger.info("Creating raw_sql function...")
+        raw_sql_function_sql = read_sql_file(sql_dir / "create_raw_sql_function.sql")
+        try:
+            # 使用 REST API 直接执行 SQL
+            headers = {
+                'apikey': config.supabase_service_role_key,
+                'Authorization': f'Bearer {config.supabase_service_role_key}',
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            }
+            
+            response = supabase.client.rest.post(
+                'rest/v1/sql',
+                headers=headers,
+                json={'query': raw_sql_function_sql}
+            )
+            
+            if response.status_code >= 400:
+                raise Exception(f"HTTP {response.status_code}: {response.text}")
+                
+            logger.info("Successfully created raw_sql function")
+        except Exception as e:
+            logger.error(f"Failed to create raw_sql function: {e}")
+            return 1
         
         # Create rent estimates view
         rent_estimates_sql = read_sql_file(sql_dir / "create_materialized_view.sql")
