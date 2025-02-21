@@ -92,7 +92,7 @@ class TestTimeOnMarket(TestCase):
             # Create test data
             test_data = {
                 'location_name': ['Test City 1', 'Test City 2'],
-                'location_type': ['city', 'city'],
+                'location_type': ['City', 'City'],
                 'location_fips_code': ['12345', '67890'],
                 'population': [100000, 200000],
                 'state': ['CA', 'NY'],
@@ -125,6 +125,19 @@ class TestTimeOnMarket(TestCase):
             
             # Clean up test data
             test_file.unlink()
+            
+            # Clean up database test data
+            for fips in ['12345', '67890']:
+                self.supabase.client.table('apartment_list_time_on_market')\
+                    .delete()\
+                    .eq('location_fips_code', fips)\
+                    .execute()
+            
+            # Refresh materialized view
+            self.supabase.client.rpc(
+                'raw_sql',
+                {'command': "REFRESH MATERIALIZED VIEW db_view_apartment_list_time_on_market_1_3;"}
+            ).execute()
             
             logger.info("Import test passed")
             
