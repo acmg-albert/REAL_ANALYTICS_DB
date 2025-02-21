@@ -44,15 +44,17 @@ class SupabaseClient:
         return result.data
     
     def insert_vacancy_index(self, records: List[Dict]) -> Dict:
-        """Insert vacancy index records into Supabase.
+        """Insert or update vacancy index records into Supabase.
         
         Args:
-            records: List of vacancy index records to insert
+            records: List of vacancy index records to insert or update
             
         Returns:
-            Dict containing the insert operation result
+            Dict containing the upsert operation result
         """
-        result = self.client.table('apartment_list_vacancy_index').insert(records).execute()
+        result = self.client.table('apartment_list_vacancy_index')\
+            .upsert(records, on_conflict='location_fips_code,year_month')\
+            .execute()
         return result.data
     
     def get_latest_rent_estimate_date(self) -> Optional[str]:

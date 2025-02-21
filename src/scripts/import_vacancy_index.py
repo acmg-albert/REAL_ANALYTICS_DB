@@ -73,25 +73,34 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
     
     with tqdm(total=total_rows, desc="Importing data") as pbar:
         for start_idx in range(0, total_rows, batch_size):
-            end_idx = min(start_idx + batch_size, total_rows)
-            batch_df = df.iloc[start_idx:end_idx]
-            
-            # 处理NaN值
-            batch_df = batch_df.replace({float('nan'): None, 'nan': None})
-            
-            # Convert batch to records
-            records = batch_df.to_dict('records')
-            
-            # Insert batch
-            result = supabase.insert_vacancy_index(records)
-            
-            # Update progress
-            rows_imported = len(records)
-            total_imported += rows_imported
-            pbar.update(rows_imported)
-            
-            logger.debug(f"Imported batch {start_idx//batch_size + 1}, "
-                        f"rows {start_idx+1} to {end_idx}")
+            try:
+                end_idx = min(start_idx + batch_size, total_rows)
+                batch_df = df.iloc[start_idx:end_idx]
+                
+                # 处理NaN值
+                batch_df = batch_df.replace({float('nan'): None, 'nan': None})
+                
+                # 确保location_fips_code是字符串类型
+                batch_df['location_fips_code'] = batch_df['location_fips_code'].astype(str)
+                
+                # Convert batch to records
+                records = batch_df.to_dict('records')
+                
+                # Insert batch
+                result = supabase.insert_vacancy_index(records)
+                
+                # Update progress
+                rows_imported = len(records)
+                total_imported += rows_imported
+                pbar.update(rows_imported)
+                
+                logger.debug(f"Imported batch {start_idx//batch_size + 1}, "
+                           f"rows {start_idx+1} to {end_idx}")
+                
+            except Exception as e:
+                logger.error(f"Error importing batch {start_idx//batch_size + 1}: {str(e)}")
+                logger.error(f"First record in failed batch: {records[0] if records else 'No records'}")
+                raise
     
     return total_imported
 
