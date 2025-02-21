@@ -16,8 +16,12 @@ class SupabaseClient:
             url: Supabase project URL
             key: Supabase service role key or anon key
         """
+        self.url = url
+        self.key = key
         self.client: Client = create_client(url, key)
-        logger.debug("Initialized Supabase client")
+        logger.info(f"Initializing Supabase client with URL: {url}")
+        logger.info(f"Key type: {'service_role' if len(key) > 200 else 'anon'}")
+        logger.info("Supabase client initialized successfully")
     
     def execute_sql(self, sql: str) -> Dict:
         """Execute raw SQL query.
@@ -28,6 +32,7 @@ class SupabaseClient:
         Returns:
             Dict containing the query result
         """
+        logger.info("Executing SQL query")
         try:
             # 首先尝试使用 raw_sql 函数
             result = self.client.rpc('raw_sql', {'command': sql}).execute()
@@ -38,22 +43,46 @@ class SupabaseClient:
             
             # 创建 raw_sql 函数
             create_function_sql = """
+            -- 设置搜索路径到 public schema
+            SET search_path = public;
+            
+            -- 删除已存在的函数（如果有）
+            DROP FUNCTION IF EXISTS raw_sql(text);
+            
+            -- 创建新的函数
             CREATE OR REPLACE FUNCTION raw_sql(command text)
             RETURNS json
             LANGUAGE plpgsql
             SECURITY DEFINER
+            SET search_path = public
             AS $$
+            DECLARE
+                result json;
+                error_message text;
+                error_detail text;
             BEGIN
+                -- 尝试执行命令
                 EXECUTE command;
-                RETURN '{"status": "success"}'::json;
+                result := '{"status": "success"}'::json;
+                RETURN result;
             EXCEPTION WHEN others THEN
-                RETURN json_build_object(
+                -- 获取错误信息
+                GET STACKED DIAGNOSTICS 
+                    error_message = MESSAGE_TEXT,
+                    error_detail = PG_EXCEPTION_DETAIL;
+                    
+                -- 返回错误信息
+                result := json_build_object(
                     'status', 'error',
-                    'message', SQLERRM,
-                    'detail', SQLSTATE
+                    'message', error_message,
+                    'detail', error_detail
                 );
+                RETURN result;
             END;
             $$;
+            
+            -- 授予执行权限
+            GRANT EXECUTE ON FUNCTION raw_sql(text) TO postgres, authenticated, anon;
             """
             
             # 直接执行 SQL 来创建函数
