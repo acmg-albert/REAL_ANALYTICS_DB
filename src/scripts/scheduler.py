@@ -27,45 +27,26 @@ def update_database_views(config: Config):
             key=config.supabase_service_role_key
         )
         
-        # 检查并刷新rent_estimates视图
-        check_sql = """
-        SELECT last_refresh
-        FROM pg_stat_user_tables
-        WHERE matviewname = 'apartment_list_rent_estimates_view'
-        AND last_refresh < NOW() - INTERVAL '1 hour';
-        """
-        result = supabase.client.rpc('raw_sql', {'command': check_sql}).execute()
-        if result.data:
-            refresh_sql = "REFRESH MATERIALIZED VIEW apartment_list_rent_estimates_view;"
-            supabase.client.rpc('raw_sql', {'command': refresh_sql}).execute()
-            logger.info("已刷新rent_estimates视图")
-            
-        # 检查并刷新vacancy_index视图
-        check_sql = """
-        SELECT last_refresh
-        FROM pg_stat_user_tables
-        WHERE matviewname = 'apartment_list_vacancy_index_view'
-        AND last_refresh < NOW() - INTERVAL '1 hour';
-        """
-        result = supabase.client.rpc('raw_sql', {'command': check_sql}).execute()
-        if result.data:
-            refresh_sql = "REFRESH MATERIALIZED VIEW apartment_list_vacancy_index_view;"
-            supabase.client.rpc('raw_sql', {'command': refresh_sql}).execute()
-            logger.info("已刷新vacancy_index视图")
-            
-        # 检查并刷新time_on_market视图
-        check_sql = """
-        SELECT last_refresh
-        FROM pg_stat_user_tables
-        WHERE matviewname = 'apartment_list_time_on_market_view'
-        AND last_refresh < NOW() - INTERVAL '1 hour';
-        """
-        result = supabase.client.rpc('raw_sql', {'command': check_sql}).execute()
-        if result.data:
-            refresh_sql = "REFRESH MATERIALIZED VIEW apartment_list_time_on_market_view;"
-            supabase.client.rpc('raw_sql', {'command': refresh_sql}).execute()
-            logger.info("已刷新time_on_market视图")
-            
+        # 直接刷新所有视图
+        views = [
+            'apartment_list_rent_estimates_view',
+            'apartment_list_vacancy_index_view',
+            'apartment_list_time_on_market_view'
+        ]
+        
+        for view_name in views:
+            try:
+                refresh_sql = f"REFRESH MATERIALIZED VIEW {view_name};"
+                result = supabase.client.rpc('raw_sql', {'command': refresh_sql}).execute()
+                
+                if result.data and result.data.get('status') == 'success':
+                    logger.info(f"已刷新视图: {view_name}")
+                else:
+                    logger.error(f"刷新视图失败: {view_name}")
+                    logger.error(f"错误信息: {result.data}")
+            except Exception as e:
+                logger.error(f"刷新视图 {view_name} 时发生错误: {str(e)}")
+                
     except Exception as e:
         logger.error(f"更新视图时发生错误: {e}")
 
