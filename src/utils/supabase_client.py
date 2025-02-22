@@ -178,32 +178,14 @@ class SupabaseClient:
             Dict containing the upsert operation result
         """
         try:
-            processed = 0
-            for record in records:
-                result = self.client.rpc('raw_sql', {
-                    'command': """
-                    INSERT INTO apartment_list_vacancy_index 
-                    (location_name, location_type, location_fips_code, 
-                     population, state, county, metro,
-                     year_month, vacancy)
-                    VALUES 
-                    (:location_name, :location_type, :location_fips_code,
-                     :population, :state, :county, :metro,
-                     :year_month, :vacancy)
-                    ON CONFLICT (location_fips_code, year_month) 
-                    DO UPDATE SET
-                    vacancy = CASE 
-                        WHEN EXCLUDED.vacancy IS NOT NULL THEN EXCLUDED.vacancy 
-                        ELSE apartment_list_vacancy_index.vacancy 
-                    END
-                    RETURNING *;
-                    """
-                }).execute()
-                
-                if result.data:
-                    processed += 1
-                    
-            return {"processed": processed}
+            # 使用批量插入而不是逐条插入
+            result = self.client.table('apartment_list_vacancy_index')\
+                .upsert(
+                    records,
+                    on_conflict='location_fips_code,year_month'
+                ).execute()
+            
+            return {"processed": len(records) if result.data else 0}
             
         except Exception as e:
             logger.error(f"Failed to insert vacancy index: {e}")
