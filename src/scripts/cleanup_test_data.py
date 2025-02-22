@@ -40,7 +40,7 @@ def main():
         
         # 刷新物化视图
         logger.info("刷新物化视图...")
-        refresh_sql = "REFRESH MATERIALIZED VIEW db_view_apartment_list_time_on_market_1_3;"
+        refresh_sql = "REFRESH MATERIALIZED VIEW apartment_list_time_on_market_view;"
         result = supabase.client.rpc('raw_sql', {'command': refresh_sql}).execute()
         
         if result.data and result.data.get('status') == 'success':
@@ -48,7 +48,7 @@ def main():
             
             # 检查视图数据
             logger.info("检查视图数据...")
-            response = supabase.client.from_('db_view_apartment_list_time_on_market_1_3')\
+            response = supabase.client.from_('apartment_list_time_on_market_view')\
                 .select('*')\
                 .in_('location_fips_code', test_fips)\
                 .execute()

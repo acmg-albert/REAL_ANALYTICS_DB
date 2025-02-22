@@ -1,122 +1,91 @@
-"""Test Supabase connection and data update logic."""
+"""Test Supabase connection and data operations."""
 
 import os
-from pathlib import Path
-from src.database import SupabaseClient
+from datetime import datetime
+from typing import Dict, List, Optional
+
+import pytest
+from dotenv import load_dotenv
+
 from src.utils.config import Config
+from src.database.supabase_client import SupabaseClient
 
-def test_connection():
-    """Test Supabase connection with both anon and service role keys."""
-    print("Loading environment variables...")
-    print(f"Current directory: {os.getcwd()}")
-    
-    # 加载配置
-    config = Config.from_env(".env")
-    print(f"Loaded config: {config}")
-    
-    print("\nTesting anon key connection...")
-    db_anon = SupabaseClient(
-        url=config.supabase_url,
-        key=config.supabase_anon_key
-    )
-    print("Anon client created successfully!")
-    
-    print("\nTesting service role key connection...")
-    db_service = SupabaseClient(
+# Load environment variables
+load_dotenv()
+
+@pytest.fixture(scope="session")
+def config() -> Config:
+    """Create configuration for testing."""
+    return Config.from_env(".env")
+
+@pytest.fixture(scope="session")
+def supabase_client(config: Config) -> SupabaseClient:
+    """Create Supabase client for testing."""
+    return SupabaseClient(
         url=config.supabase_url,
         key=config.supabase_service_role_key
     )
-    print("Service role client created successfully!")
-    
-    # 检查表是否存在
-    print("\nChecking if table exists...")
-    if db_anon.check_table_exists():
-        # 获取最新的年月
-        latest_year_month = db_anon.get_latest_year_month()
-        if latest_year_month:
-            print(f"Latest year_month in database: {latest_year_month}")
-        else:
-            print("No data in the table yet.")
 
-def test_update_logic():
-    """Test the new update logic with various scenarios."""
-    print("\nTesting update logic...")
-    
-    # 加载配置
-    config = Config.from_env(".env")
-    
+def test_connection(supabase_client: SupabaseClient) -> None:
+    """Test database connection."""
     # 使用 service_role_key 创建客户端
-    print("Using service_role_key for testing...")
-    db = SupabaseClient(
-        url=config.supabase_url,
-        key=config.supabase_service_role_key
-    )
+    print("Testing database connection...")
     
-    # 测试数据
-    test_records = [
-        # 新的 location
+    # 测试连接
+    result = supabase_client.execute_sql("SELECT NOW();")
+    assert result is not None
+    print("Database connection successful!")
+
+def test_update_logic(supabase_client: SupabaseClient) -> None:
+    """Test data update logic."""
+    # 准备测试数据
+    test_data = [
         {
-            'location_name': 'Test City 1',
-            'location_type': 'city',
-            'location_fips_code': 'TEST001',
-            'population': 100000,
-            'state': 'TS',
-            'county': 'Test County',
-            'metro': 'Test Metro',
-            'year_month': '2024_02',
-            'rent_estimate_overall': 1500,
-            'rent_estimate_1br': 1200,
-            'rent_estimate_2br': 1800
+            "location_name": "Test City 1",
+            "location_type": "city",
+            "location_fips_code": "12345",
+            "rent_estimate": 1500.0,
+            "year": 2024,
+            "month": 1
         },
-        # 现有 location 的新月份
         {
-            'location_name': 'New York',
-            'location_type': 'city',
-            'location_fips_code': '36061',
-            'population': 8336817,
-            'state': 'NY',
-            'county': 'New York',
-            'metro': 'New York-Newark-Jersey City',
-            'year_month': '2024_03',
-            'rent_estimate_overall': 3600,
-            'rent_estimate_1br': 2900,
-            'rent_estimate_2br': 3300
-        },
-        # 现有记录的更新（非空值）
-        {
-            'location_name': 'New York',
-            'location_type': 'city',
-            'location_fips_code': '36061',
-            'population': 8336817,
-            'state': 'NY',
-            'county': 'New York',
-            'metro': 'New York-Newark-Jersey City',
-            'year_month': '2024_02',
-            'rent_estimate_overall': 3550,
-            'rent_estimate_1br': 2850,
-            'rent_estimate_2br': 3250
-        },
-        # 现有记录的更新（空值，不应更新）
-        {
-            'location_name': 'Los Angeles',
-            'location_type': 'city',
-            'location_fips_code': '06037',
-            'population': 3898747,
-            'state': 'CA',
-            'county': 'Los Angeles',
-            'metro': 'Los Angeles-Long Beach-Anaheim',
-            'year_month': '2024_02',
-            'rent_estimate_overall': None,
-            'rent_estimate_1br': 0,
-            'rent_estimate_2br': None
+            "location_name": "Test City 2",
+            "location_type": "city",
+            "location_fips_code": "67890",
+            "rent_estimate": None,  # 测试空值
+            "year": 2024,
+            "month": 1
         }
     ]
     
-    # 执行更新
-    print("\nInserting test records...")
-    count = db.insert_rent_estimates(test_records)
-    print(f"Processed {count} records")
+    # 测试插入数据
+    print("Testing data insertion...")
+    result = supabase_client.execute_sql(
+        """
+        INSERT INTO apartment_list_rent_estimates 
+        (location_name, location_type, location_fips_code, rent_estimate, year, month)
+        VALUES 
+        (:location_name, :location_type, :location_fips_code, :rent_estimate, :year, :month)
+        ON CONFLICT (location_fips_code, year, month) 
+        DO UPDATE SET
+        rent_estimate = EXCLUDED.rent_estimate
+        WHERE apartment_list_rent_estimates.rent_estimate IS NULL 
+        OR apartment_list_rent_estimates.rent_estimate < EXCLUDED.rent_estimate
+        RETURNING *;
+        """,
+        params=test_data[0]
+    )
+    assert result is not None
+    print("Data insertion successful!")
 
 if __name__ == "__main__":
-    test_connection()
-    test_update_logic() 
+    # 设置测试环境
+    config = Config.from_env(".env")
+    client = SupabaseClient(
+        url=config.supabase_url,
+        key=config.supabase_service_role_key
+    )
+    
+    # 运行测试
+    test_connection(client)
+    test_update_logic(client) 

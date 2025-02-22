@@ -68,7 +68,6 @@ class Config:
             ConfigurationError: If URL is invalid
         """
         try:
-            print(f"Validating Supabase URL: {url}")
             # Basic validation
             if not url.startswith('https://') or not url.endswith('.supabase.co'):
                 raise ValueError("URL must be in format: https://<project>.supabase.co")
@@ -99,7 +98,6 @@ class Config:
         if env_file:
             if not os.path.exists(env_file):
                 raise ConfigurationError(f"Environment file not found: {env_file}")
-            print(f"Loading environment variables from: {env_file}")
             load_dotenv(env_file, override=True)
             
         try:
@@ -113,10 +111,6 @@ class Config:
             supabase_url = os.getenv("SUPABASE_URL")
             supabase_anon_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
             supabase_service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-            
-            print(f"Raw SUPABASE_URL: {supabase_url}")
-            print(f"Raw SUPABASE_ANON_KEY: {supabase_anon_key}")
-            print(f"Raw SUPABASE_SERVICE_ROLE_KEY: {supabase_service_role_key}")
             
             if not supabase_url or not supabase_anon_key:
                 raise ConfigurationError("SUPABASE_URL and SUPABASE_ANON_KEY are required")

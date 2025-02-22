@@ -52,6 +52,10 @@ data/
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+test_*.py
+check_*.py
+cleanup_*.py
+verify_*.py
 
 # Distribution
 dist/
@@ -59,4 +63,14 @@ build/
 
 # System Files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Debug files
+debug/
+debug.log 

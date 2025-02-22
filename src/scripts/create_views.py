@@ -1,112 +1,128 @@
-"""Script to create database views."""
+"""Script to create materialized views."""
 
 import logging
 import sys
 from pathlib import Path
 
 from ..utils.config import Config
-from ..utils.exceptions import ConfigurationError
-from ..utils.supabase_client import SupabaseClient
+from ..database import SupabaseClient
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def read_sql_file(file_path: Path) -> str:
-    """Read SQL file contents.
-    
-    Args:
-        file_path: Path to SQL file
-        
-    Returns:
-        str: SQL file contents
-    """
-    with open(file_path, 'r') as f:
-        return f.read()
-
 def main():
-    """Main entry point for creating database views."""
+    """Main entry point for creating views."""
     try:
         # Load configuration
         config = Config.from_env()
         
-        # Initialize Supabase client with service role key
-        if not config.supabase_service_role_key:
-            raise ConfigurationError("SUPABASE_SERVICE_ROLE_KEY is required for creating views")
-            
+        # Initialize Supabase client
         supabase = SupabaseClient(
             url=config.supabase_url,
             key=config.supabase_service_role_key
         )
         
-        # Read and execute SQL files
-        sql_dir = Path(__file__).parent.parent / "database" / "sql"
+        # 创建rent_estimates视图
+        logger.info("创建rent_estimates视图...")
+        rent_estimates_sql = """
+        CREATE MATERIALIZED VIEW apartment_list_rent_estimates_view AS
+        SELECT 
+            location_name,
+            location_type,
+            location_fips_code,
+            population,
+            state,
+            county,
+            metro,
+            year_month,
+            rent_estimate_overall,
+            rent_estimate_1br,
+            rent_estimate_2br,
+            last_update_time
+        FROM apartment_list_rent_estimates
+        WITH DATA;
         
-        # First create raw_sql function
-        logger.info("Creating raw_sql function...")
-        raw_sql_function_sql = read_sql_file(sql_dir / "create_raw_sql_function.sql")
-        try:
-            # 使用 REST API 直接执行 SQL
-            headers = {
-                'apikey': config.supabase_service_role_key,
-                'Authorization': f'Bearer {config.supabase_service_role_key}',
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-            }
-            
-            response = supabase.client.rest.post(
-                'rest/v1/sql',
-                headers=headers,
-                json={'query': raw_sql_function_sql}
-            )
-            
-            if response.status_code >= 400:
-                raise Exception(f"HTTP {response.status_code}: {response.text}")
-                
-            logger.info("Successfully created raw_sql function")
-        except Exception as e:
-            logger.error(f"Failed to create raw_sql function: {e}")
-            return 1
+        CREATE INDEX idx_rent_estimates_view_location 
+        ON apartment_list_rent_estimates_view(location_fips_code);
         
-        # Create rent estimates view
-        rent_estimates_sql = read_sql_file(sql_dir / "create_materialized_view.sql")
-        logger.info("Creating rent estimates view...")
-        try:
-            supabase.execute_sql(rent_estimates_sql)
-            logger.info("Successfully created rent estimates view")
-        except Exception as e:
-            logger.error(f"Failed to create rent estimates view: {e}")
-            logger.warning("Continuing with vacancy index view creation...")
+        CREATE INDEX idx_rent_estimates_view_year_month 
+        ON apartment_list_rent_estimates_view(year_month);
         
-        # Create vacancy index view
-        vacancy_index_sql = read_sql_file(sql_dir / "create_vacancy_index_view.sql")
-        logger.info("Creating vacancy index view...")
-        try:
-            supabase.execute_sql(vacancy_index_sql)
-            logger.info("Successfully created vacancy index view")
-        except Exception as e:
-            logger.error(f"Failed to create vacancy index view: {e}")
-            logger.warning("View creation process completed with errors")
-            return 1
+        GRANT SELECT ON apartment_list_rent_estimates_view TO authenticated, anon;
+        """
         
-        logger.info("Successfully created all database views")
+        result = supabase.client.rpc('raw_sql', {'command': rent_estimates_sql}).execute()
+        if result.data and result.data.get('status') == 'success':
+            logger.info("成功创建rent_estimates视图")
+        
+        # 创建vacancy_index视图
+        logger.info("创建vacancy_index视图...")
+        vacancy_index_sql = """
+        CREATE MATERIALIZED VIEW apartment_list_vacancy_index_view AS
+        SELECT 
+            location_name,
+            location_type,
+            location_fips_code,
+            population,
+            state,
+            county,
+            metro,
+            year_month,
+            vacancy_index,
+            last_update_time
+        FROM apartment_list_vacancy_index
+        WITH DATA;
+        
+        CREATE INDEX idx_vacancy_index_view_location 
+        ON apartment_list_vacancy_index_view(location_fips_code);
+        
+        CREATE INDEX idx_vacancy_index_view_year_month 
+        ON apartment_list_vacancy_index_view(year_month);
+        
+        GRANT SELECT ON apartment_list_vacancy_index_view TO authenticated, anon;
+        """
+        
+        result = supabase.client.rpc('raw_sql', {'command': vacancy_index_sql}).execute()
+        if result.data and result.data.get('status') == 'success':
+            logger.info("成功创建vacancy_index视图")
+        
+        # 创建time_on_market视图
+        logger.info("创建time_on_market视图...")
+        time_on_market_sql = """
+        CREATE MATERIALIZED VIEW apartment_list_time_on_market_view AS
+        SELECT DISTINCT ON (location_fips_code, year_month)
+            location_name,
+            'City' as location_type,
+            location_fips_code,
+            population,
+            state,
+            county,
+            metro,
+            year_month,
+            time_on_market,
+            last_update_time
+        FROM apartment_list_time_on_market
+        ORDER BY location_fips_code, year_month, last_update_time DESC
+        WITH DATA;
+        
+        CREATE INDEX idx_time_on_market_view_location 
+        ON apartment_list_time_on_market_view(location_fips_code);
+        
+        CREATE INDEX idx_time_on_market_view_year_month 
+        ON apartment_list_time_on_market_view(year_month);
+        
+        GRANT SELECT ON apartment_list_time_on_market_view TO authenticated, anon;
+        """
+        
+        result = supabase.client.rpc('raw_sql', {'command': time_on_market_sql}).execute()
+        if result.data and result.data.get('status') == 'success':
+            logger.info("成功创建time_on_market视图")
+        
         return 0
         
-    except FileNotFoundError as e:
-        logger.error(f"SQL file not found: {e}")
-        return 1
-    except ConfigurationError as e:
-        logger.error(f"Configuration error: {e}")
-        return 1
     except Exception as e:
-        logger.exception("Unexpected error occurred")
+        logger.exception("创建视图时发生错误")
         return 1
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ def main():
             
         # 检查物化视图数据
         logger.info("\n检查物化视图数据...")
-        response = supabase.client.from_('db_view_apartment_list_time_on_market_1_3').select('*').execute()
+        response = supabase.client.from_('apartment_list_time_on_market_view').select('*').execute()
         if response.data:
             logger.info(f"物化视图记录数: {len(response.data)}")
             

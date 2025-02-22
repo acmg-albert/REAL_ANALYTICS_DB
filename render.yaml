@@ -29,4 +29,8 @@ services:
       - pytest.ini
       - .pytest_cache/**/*
       - src/scripts/cleanup_*.py
-      - src/scripts/check_*.py 
+      - src/scripts/check_*.py
+      - src/scripts/verify_*.py
+      - src/scripts/drop_*.py
+      - data/**/*.csv
+      - logs/**/*.log 

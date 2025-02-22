@@ -37,27 +37,43 @@ def find_latest_processed_file(data_dir: Path) -> Path:
     # 如果还是没有找到，返回默认路径
     return data_dir / 'processed' / 'rent_estimates.csv'
 
-def import_data_in_batches(db: SupabaseClient, df: pd.DataFrame, batch_size: int = 1000) -> int:
+def import_data_in_batches(db: SupabaseClient, df: pd.DataFrame, batch_size: int = 5000) -> int:
     """Import data in batches to avoid memory issues."""
     total_rows = len(df)
     imported_count = 0
     
+    logger.info(f"开始导入数据，总记录数: {total_rows}，批量大小: {batch_size}")
+    
     # 使用tqdm创建进度条
-    with tqdm(total=total_rows, desc="Importing data") as pbar:
+    with tqdm(total=total_rows, desc="导入数据") as pbar:
         for start_idx in range(0, total_rows, batch_size):
             end_idx = min(start_idx + batch_size, total_rows)
             batch_df = df.iloc[start_idx:end_idx]
+            current_batch = len(batch_df)
             
-            # 转换为字典列表
-            records = batch_df.to_dict('records')
-            
-            # 使用upsert导入数据
-            result = db.insert_rent_estimates(records)
-            
-            # 更新进度
-            imported_count += result
-            pbar.update(len(batch_df))
-            
+            try:
+                # 转换为字典列表并构建单个SQL语句
+                records = batch_df.to_dict('records')
+                
+                # 使用批量导入
+                logger.info(f"正在导入批次 {start_idx//batch_size + 1}, 记录范围: {start_idx+1}-{end_idx}")
+                db.insert_rent_estimates(records)
+                
+                # 更新进度
+                imported_count += current_batch
+                pbar.update(current_batch)
+                pbar.set_postfix({'已导入': f"{imported_count}/{total_rows}"})
+                logger.info(f"成功导入批次，当前进度: {imported_count}/{total_rows}")
+                
+            except Exception as e:
+                logger.error(f"导入批次 {start_idx//batch_size + 1} 时发生错误:")
+                logger.error(f"错误类型: {type(e).__name__}")
+                logger.error(f"错误信息: {str(e)}")
+                if hasattr(e, 'response'):
+                    logger.error(f"响应状态码: {e.response.status_code}")
+                    logger.error(f"响应内容: {e.response.text}")
+                raise
+    
     return imported_count
 
 def main() -> int:
