@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # 创建调度器
-scheduler = None
+scheduler = BackgroundScheduler()
 
 def update_database_views(config: Config):
     """Update database views."""
@@ -79,12 +79,9 @@ def run_daily_update():
         logger.error(error_msg)
         return [{'status': 'error', 'error': error_msg}]
 
-@app.before_first_request
 def init_scheduler():
-    """Initialize the scheduler before first request."""
-    global scheduler
-    if scheduler is None:
-        scheduler = BackgroundScheduler()
+    """Initialize the scheduler."""
+    if not scheduler.running:
         scheduler.add_job(run_daily_update, 'interval', hours=1)
         scheduler.start()
         logger.info("调度器已启动")
@@ -92,10 +89,13 @@ def init_scheduler():
 @app.route('/')
 def home():
     """Home page."""
+    # 确保调度器已启动
+    init_scheduler()
+    
     return jsonify({
         'status': 'running',
         'time': datetime.now().isoformat(),
-        'scheduler_status': 'running' if scheduler and scheduler.running else 'not running'
+        'scheduler_status': 'running' if scheduler.running else 'not running'
     })
 
 @app.route('/run-update')
@@ -116,7 +116,7 @@ def main():
         app.run(host='0.0.0.0', port=port)
         
     except (KeyboardInterrupt, SystemExit):
-        if scheduler:
+        if scheduler.running:
             scheduler.shutdown()
 
 if __name__ == "__main__":
