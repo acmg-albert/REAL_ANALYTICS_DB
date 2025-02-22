@@ -1,8 +1,11 @@
 """Supabase client wrapper for database operations."""
 
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any
 from supabase import create_client, Client
+from datetime import datetime
+import pytz
+from ..utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -115,16 +118,55 @@ class SupabaseClient:
                 raise
     
     def insert_rent_estimates(self, records: List[Dict]) -> Dict:
-        """Insert rent estimates records into Supabase.
+        """Insert or update rent estimates records into Supabase.
         
         Args:
-            records: List of rent estimate records to insert
+            records: List of rent estimates records to insert or update
             
         Returns:
-            Dict containing the insert operation result
+            Dict containing the upsert operation result
         """
-        result = self.client.table('apartment_list_rent_estimates').insert(records).execute()
-        return result.data
+        try:
+            processed = 0
+            for record in records:
+                result = self.client.rpc('raw_sql', {
+                    'command': """
+                    INSERT INTO apartment_list_rent_estimates 
+                    (location_name, location_type, location_fips_code, 
+                     population, state, county, metro,
+                     year_month, rent_estimate_overall, 
+                     rent_estimate_1br, rent_estimate_2br)
+                    VALUES 
+                    (:location_name, :location_type, :location_fips_code,
+                     :population, :state, :county, :metro,
+                     :year_month, :rent_estimate_overall,
+                     :rent_estimate_1br, :rent_estimate_2br)
+                    ON CONFLICT (location_fips_code, year_month) 
+                    DO UPDATE SET
+                    rent_estimate_overall = CASE 
+                        WHEN EXCLUDED.rent_estimate_overall IS NOT NULL THEN EXCLUDED.rent_estimate_overall 
+                        ELSE apartment_list_rent_estimates.rent_estimate_overall 
+                    END,
+                    rent_estimate_1br = CASE 
+                        WHEN EXCLUDED.rent_estimate_1br IS NOT NULL THEN EXCLUDED.rent_estimate_1br 
+                        ELSE apartment_list_rent_estimates.rent_estimate_1br 
+                    END,
+                    rent_estimate_2br = CASE 
+                        WHEN EXCLUDED.rent_estimate_2br IS NOT NULL THEN EXCLUDED.rent_estimate_2br 
+                        ELSE apartment_list_rent_estimates.rent_estimate_2br 
+                    END
+                    RETURNING *;
+                    """
+                }).execute()
+                
+                if result.data:
+                    processed += 1
+                    
+            return {"processed": processed}
+            
+        except Exception as e:
+            logger.error(f"Failed to insert rent estimates: {e}")
+            raise DatabaseError(f"Failed to insert rent estimates: {e}") from e
     
     def insert_vacancy_index(self, records: List[Dict]) -> Dict:
         """Insert or update vacancy index records into Supabase.
@@ -135,10 +177,37 @@ class SupabaseClient:
         Returns:
             Dict containing the upsert operation result
         """
-        result = self.client.table('apartment_list_vacancy_index')\
-            .upsert(records, on_conflict='location_fips_code,year_month')\
-            .execute()
-        return result.data
+        try:
+            processed = 0
+            for record in records:
+                result = self.client.rpc('raw_sql', {
+                    'command': """
+                    INSERT INTO apartment_list_vacancy_index 
+                    (location_name, location_type, location_fips_code, 
+                     population, state, county, metro,
+                     year_month, vacancy)
+                    VALUES 
+                    (:location_name, :location_type, :location_fips_code,
+                     :population, :state, :county, :metro,
+                     :year_month, :vacancy)
+                    ON CONFLICT (location_fips_code, year_month) 
+                    DO UPDATE SET
+                    vacancy = CASE 
+                        WHEN EXCLUDED.vacancy IS NOT NULL THEN EXCLUDED.vacancy 
+                        ELSE apartment_list_vacancy_index.vacancy 
+                    END
+                    RETURNING *;
+                    """
+                }).execute()
+                
+                if result.data:
+                    processed += 1
+                    
+            return {"processed": processed}
+            
+        except Exception as e:
+            logger.error(f"Failed to insert vacancy index: {e}")
+            raise DatabaseError(f"Failed to insert vacancy index: {e}") from e
     
     def insert_time_on_market(self, records: List[Dict]) -> Dict:
         """Insert or update time on market records into Supabase.
@@ -149,10 +218,37 @@ class SupabaseClient:
         Returns:
             Dict containing the upsert operation result
         """
-        result = self.client.table('apartment_list_time_on_market')\
-            .upsert(records, on_conflict='location_fips_code,year_month')\
-            .execute()
-        return result.data
+        try:
+            processed = 0
+            for record in records:
+                result = self.client.rpc('raw_sql', {
+                    'command': """
+                    INSERT INTO apartment_list_time_on_market 
+                    (location_name, location_type, location_fips_code, 
+                     population, state, county, metro,
+                     year_month, time_on_market)
+                    VALUES 
+                    (:location_name, :location_type, :location_fips_code,
+                     :population, :state, :county, :metro,
+                     :year_month, :time_on_market)
+                    ON CONFLICT (location_fips_code, year_month) 
+                    DO UPDATE SET
+                    time_on_market = CASE 
+                        WHEN EXCLUDED.time_on_market IS NOT NULL THEN EXCLUDED.time_on_market 
+                        ELSE apartment_list_time_on_market.time_on_market 
+                    END
+                    RETURNING *;
+                    """
+                }).execute()
+                
+                if result.data:
+                    processed += 1
+                    
+            return {"processed": processed}
+            
+        except Exception as e:
+            logger.error(f"Failed to insert time on market: {e}")
+            raise DatabaseError(f"Failed to insert time on market: {e}") from e
     
     def get_latest_rent_estimate_date(self) -> Optional[str]:
         """Get the most recent date from rent estimates table.
