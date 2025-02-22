@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask
+from flask import Flask, jsonify
 
 from ..utils.config import Config
 from ..database import SupabaseClient
@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 # Create Flask app
 app = Flask(__name__)
+
+# 创建调度器
+scheduler = None
 
 def update_database_views(config: Config):
     """Update database views."""
@@ -34,6 +37,7 @@ def update_database_views(config: Config):
             'apartment_list_time_on_market_view'
         ]
         
+        results = []
         for view_name in views:
             try:
                 refresh_sql = f"REFRESH MATERIALIZED VIEW {view_name};"
@@ -41,14 +45,22 @@ def update_database_views(config: Config):
                 
                 if result.data and result.data.get('status') == 'success':
                     logger.info(f"已刷新视图: {view_name}")
+                    results.append({'view': view_name, 'status': 'success'})
                 else:
                     logger.error(f"刷新视图失败: {view_name}")
                     logger.error(f"错误信息: {result.data}")
+                    results.append({'view': view_name, 'status': 'error', 'error': str(result.data)})
             except Exception as e:
-                logger.error(f"刷新视图 {view_name} 时发生错误: {str(e)}")
+                error_msg = f"刷新视图 {view_name} 时发生错误: {str(e)}"
+                logger.error(error_msg)
+                results.append({'view': view_name, 'status': 'error', 'error': error_msg})
+                
+        return results
                 
     except Exception as e:
-        logger.error(f"更新视图时发生错误: {e}")
+        error_msg = f"更新视图时发生错误: {e}"
+        logger.error(error_msg)
+        return [{'status': 'error', 'error': error_msg}]
 
 def run_daily_update():
     """Run daily update tasks."""
@@ -57,42 +69,55 @@ def run_daily_update():
         config = Config.from_env()
         
         # Update views
-        update_database_views(config)
+        results = update_database_views(config)
         
         logger.info("每日更新完成")
+        return results
         
     except Exception as e:
-        logger.error(f"每日更新失败: {e}")
+        error_msg = f"每日更新失败: {e}"
+        logger.error(error_msg)
+        return [{'status': 'error', 'error': error_msg}]
 
-# 创建调度器
-scheduler = BackgroundScheduler()
-scheduler.add_job(run_daily_update, 'interval', hours=1)
+@app.before_first_request
+def init_scheduler():
+    """Initialize the scheduler before first request."""
+    global scheduler
+    if scheduler is None:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(run_daily_update, 'interval', hours=1)
+        scheduler.start()
+        logger.info("调度器已启动")
 
 @app.route('/')
 def home():
     """Home page."""
-    return {
+    return jsonify({
         'status': 'running',
-        'time': datetime.now().isoformat()
-    }
+        'time': datetime.now().isoformat(),
+        'scheduler_status': 'running' if scheduler and scheduler.running else 'not running'
+    })
 
 @app.route('/run-update')
 def trigger_update():
     """Manually trigger update."""
-    run_daily_update()
-    return {'status': 'update triggered'}
+    results = run_daily_update()
+    return jsonify({
+        'status': 'update triggered',
+        'results': results,
+        'time': datetime.now().isoformat()
+    })
 
 def main():
     """Main entry point."""
     try:
-        # Start scheduler
-        scheduler.start()
-        
         # Run Flask app
-        app.run(host='0.0.0.0', port=int(sys.argv[1]) if len(sys.argv) > 1 else 8000)
+        port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+        app.run(host='0.0.0.0', port=port)
         
     except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()
+        if scheduler:
+            scheduler.shutdown()
 
 if __name__ == "__main__":
     main() 
