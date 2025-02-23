@@ -222,18 +222,18 @@ class SupabaseClient:
                 {','.join(values_list)}
                 ON CONFLICT (location_fips_code, year_month) 
                 DO UPDATE SET
-                    rent_estimate_overall = EXCLUDED.rent_estimate_overall,
-                    rent_estimate_1br = EXCLUDED.rent_estimate_1br,
-                    rent_estimate_2br = EXCLUDED.rent_estimate_2br
-                WHERE 
-                    (apartment_list_rent_estimates.rent_estimate_overall IS NULL 
-                     OR apartment_list_rent_estimates.rent_estimate_overall < EXCLUDED.rent_estimate_overall)
-                    OR 
-                    (apartment_list_rent_estimates.rent_estimate_1br IS NULL 
-                     OR apartment_list_rent_estimates.rent_estimate_1br < EXCLUDED.rent_estimate_1br)
-                    OR 
-                    (apartment_list_rent_estimates.rent_estimate_2br IS NULL 
-                     OR apartment_list_rent_estimates.rent_estimate_2br < EXCLUDED.rent_estimate_2br)
+                    rent_estimate_overall = CASE 
+                        WHEN EXCLUDED.rent_estimate_overall IS NOT NULL THEN EXCLUDED.rent_estimate_overall 
+                        ELSE apartment_list_rent_estimates.rent_estimate_overall 
+                    END,
+                    rent_estimate_1br = CASE 
+                        WHEN EXCLUDED.rent_estimate_1br IS NOT NULL THEN EXCLUDED.rent_estimate_1br 
+                        ELSE apartment_list_rent_estimates.rent_estimate_1br 
+                    END,
+                    rent_estimate_2br = CASE 
+                        WHEN EXCLUDED.rent_estimate_2br IS NOT NULL THEN EXCLUDED.rent_estimate_2br 
+                        ELSE apartment_list_rent_estimates.rent_estimate_2br 
+                    END
             """
             
             # 执行批量插入
@@ -248,7 +248,167 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"批量插入租金估算记录失败: {e}")
             raise DatabaseError(f"批量插入租金估算记录失败: {e}") from e
-    
+
+    def insert_vacancy_index(self, records: List[Dict[str, Any]]) -> int:
+        """
+        Insert vacancy index records into database.
+        
+        Args:
+            records: List of vacancy index records to insert
+            
+        Returns:
+            int: Number of records processed
+            
+        Raises:
+            DatabaseError: If insertion fails
+        """
+        try:
+            # 准备批量插入的值
+            values_list = []
+            for record in records:
+                # 处理空值和字符串转义
+                processed_record = {}
+                for key, value in record.items():
+                    if value is None:
+                        processed_record[key] = 'NULL'
+                    elif isinstance(value, str):
+                        processed_record[key] = f"'{value.replace(chr(39), chr(39)+chr(39))}'"
+                    else:
+                        processed_record[key] = str(value)
+                
+                # 构建值字符串
+                values = f"""(
+                    {processed_record['location_name']}, 
+                    {processed_record['location_type']}, 
+                    {processed_record['location_fips_code']},
+                    {processed_record['population']}, 
+                    {processed_record['state']}, 
+                    {processed_record['county']}, 
+                    {processed_record['metro']}, 
+                    {processed_record['year_month']},
+                    {processed_record['vacancy_index_overall']}, 
+                    {processed_record['vacancy_index_1br']}, 
+                    {processed_record['vacancy_index_2br']}
+                )"""
+                values_list.append(values)
+            
+            # 构建批量插入SQL
+            query = f"""
+                INSERT INTO apartment_list_vacancy_index (
+                    location_name, location_type, location_fips_code,
+                    population, state, county, metro, year_month,
+                    vacancy_index_overall, vacancy_index_1br, vacancy_index_2br
+                ) VALUES 
+                {','.join(values_list)}
+                ON CONFLICT (location_fips_code, year_month) 
+                DO UPDATE SET
+                    vacancy_index_overall = CASE 
+                        WHEN EXCLUDED.vacancy_index_overall IS NOT NULL THEN EXCLUDED.vacancy_index_overall 
+                        ELSE apartment_list_vacancy_index.vacancy_index_overall 
+                    END,
+                    vacancy_index_1br = CASE 
+                        WHEN EXCLUDED.vacancy_index_1br IS NOT NULL THEN EXCLUDED.vacancy_index_1br 
+                        ELSE apartment_list_vacancy_index.vacancy_index_1br 
+                    END,
+                    vacancy_index_2br = CASE 
+                        WHEN EXCLUDED.vacancy_index_2br IS NOT NULL THEN EXCLUDED.vacancy_index_2br 
+                        ELSE apartment_list_vacancy_index.vacancy_index_2br 
+                    END
+            """
+            
+            # 执行批量插入
+            self.execute_sql(query)
+            
+            # 刷新物化视图
+            self.refresh_materialized_views()
+            logger.info(f"成功批量插入 {len(records)} 条空置率记录")
+            
+            return len(records)
+            
+        except Exception as e:
+            logger.error(f"批量插入空置率记录失败: {e}")
+            raise DatabaseError(f"批量插入空置率记录失败: {e}") from e
+
+    def insert_time_on_market(self, records: List[Dict[str, Any]]) -> int:
+        """
+        Insert time on market records into database.
+        
+        Args:
+            records: List of time on market records to insert
+            
+        Returns:
+            int: Number of records processed
+            
+        Raises:
+            DatabaseError: If insertion fails
+        """
+        try:
+            # 准备批量插入的值
+            values_list = []
+            for record in records:
+                # 处理空值和字符串转义
+                processed_record = {}
+                for key, value in record.items():
+                    if value is None:
+                        processed_record[key] = 'NULL'
+                    elif isinstance(value, str):
+                        processed_record[key] = f"'{value.replace(chr(39), chr(39)+chr(39))}'"
+                    else:
+                        processed_record[key] = str(value)
+                
+                # 构建值字符串
+                values = f"""(
+                    {processed_record['location_name']}, 
+                    {processed_record['location_type']}, 
+                    {processed_record['location_fips_code']},
+                    {processed_record['population']}, 
+                    {processed_record['state']}, 
+                    {processed_record['county']}, 
+                    {processed_record['metro']}, 
+                    {processed_record['year_month']},
+                    {processed_record['time_on_market_overall']}, 
+                    {processed_record['time_on_market_1br']}, 
+                    {processed_record['time_on_market_2br']}
+                )"""
+                values_list.append(values)
+            
+            # 构建批量插入SQL
+            query = f"""
+                INSERT INTO apartment_list_time_on_market (
+                    location_name, location_type, location_fips_code,
+                    population, state, county, metro, year_month,
+                    time_on_market_overall, time_on_market_1br, time_on_market_2br
+                ) VALUES 
+                {','.join(values_list)}
+                ON CONFLICT (location_fips_code, year_month) 
+                DO UPDATE SET
+                    time_on_market_overall = CASE 
+                        WHEN EXCLUDED.time_on_market_overall IS NOT NULL THEN EXCLUDED.time_on_market_overall 
+                        ELSE apartment_list_time_on_market.time_on_market_overall 
+                    END,
+                    time_on_market_1br = CASE 
+                        WHEN EXCLUDED.time_on_market_1br IS NOT NULL THEN EXCLUDED.time_on_market_1br 
+                        ELSE apartment_list_time_on_market.time_on_market_1br 
+                    END,
+                    time_on_market_2br = CASE 
+                        WHEN EXCLUDED.time_on_market_2br IS NOT NULL THEN EXCLUDED.time_on_market_2br 
+                        ELSE apartment_list_time_on_market.time_on_market_2br 
+                    END
+            """
+            
+            # 执行批量插入
+            self.execute_sql(query)
+            
+            # 刷新物化视图
+            self.refresh_materialized_views()
+            logger.info(f"成功批量插入 {len(records)} 条上市时间记录")
+            
+            return len(records)
+            
+        except Exception as e:
+            logger.error(f"批量插入上市时间记录失败: {e}")
+            raise DatabaseError(f"批量插入上市时间记录失败: {e}") from e
+
     def get_latest_dates(self) -> Dict[str, Optional[datetime]]:
         """
         Get latest dates from various tables.
@@ -281,52 +441,4 @@ class SupabaseClient:
                 "rent_estimates": None,
                 "vacancy_index": None,
                 "time_on_market": None
-            }
-
-    def insert_time_on_market(self, records: List[Dict[str, Any]]) -> int:
-        """
-        Insert time on market records into database.
-        
-        Args:
-            records: List of time on market records to insert
-            
-        Returns:
-            int: Number of records processed
-            
-        Raises:
-            DatabaseError: If insertion fails
-        """
-        try:
-            processed = 0
-            for record in records:
-                result = self.execute_sql(
-                    """
-                    INSERT INTO apartment_list_time_on_market 
-                    (location_name, location_type, location_fips_code, 
-                     population, state, county, metro,
-                     year_month, time_on_market)
-                    VALUES 
-                    (:location_name, :location_type, :location_fips_code,
-                     :population, :state, :county, :metro,
-                     :year_month, :time_on_market)
-                    ON CONFLICT (location_fips_code, year_month) 
-                    DO UPDATE SET
-                    time_on_market = EXCLUDED.time_on_market
-                    WHERE 
-                    apartment_list_time_on_market.time_on_market IS NULL 
-                    OR apartment_list_time_on_market.time_on_market < EXCLUDED.time_on_market
-                    RETURNING *;
-                    """,
-                    record
-                )
-                if result:
-                    processed += 1
-                
-            # 刷新物化视图
-            self.refresh_materialized_views()
-                
-            return processed
-            
-        except Exception as e:
-            logger.error(f"Failed to insert time on market data: {e}")
-            raise DatabaseError(f"Failed to insert time on market data: {e}") from e 
+            } 
