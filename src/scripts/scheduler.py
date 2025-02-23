@@ -4,7 +4,6 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-import importlib
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify
@@ -21,48 +20,6 @@ app = Flask(__name__)
 
 # 创建调度器
 scheduler = BackgroundScheduler()
-
-def run_script(script_name: str) -> bool:
-    """Run a script module and return its success status."""
-    try:
-        logger.info(f"开始执行脚本: {script_name}")
-        module = importlib.import_module(f"src.scripts.{script_name}")
-        result = module.main()
-        success = result == 0
-        if success:
-            logger.info(f"脚本 {script_name} 执行成功")
-        else:
-            logger.error(f"脚本 {script_name} 执行失败")
-        return success
-    except Exception as e:
-        logger.error(f"执行脚本 {script_name} 时发生错误: {str(e)}")
-        return False
-
-def update_data_source(source_name: str) -> dict:
-    """Update a single data source."""
-    results = {
-        'source': source_name,
-        'steps': []
-    }
-    
-    # 定义每个数据源的处理步骤
-    steps = [
-        f"scrape_{source_name}",
-        f"process_{source_name}",
-        f"import_{source_name}"
-    ]
-    
-    for step in steps:
-        success = run_script(step)
-        results['steps'].append({
-            'step': step,
-            'status': 'success' if success else 'error'
-        })
-        if not success:
-            logger.error(f"{source_name} 更新在步骤 {step} 失败")
-            break
-            
-    return results
 
 def update_database_views(config: Config):
     """Update database views."""
@@ -111,27 +68,9 @@ def run_daily_update():
         # Load configuration
         config = Config.from_env()
         
-        # 更新所有数据源
-        data_sources = [
-            'rent_estimates',
-            'vacancy_index',
-            'time_on_market'
-        ]
-        
-        update_results = []
-        for source in data_sources:
-            logger.info(f"开始更新数据源: {source}")
-            result = update_data_source(source)
-            update_results.append(result)
-            
-        # 更新视图
-        logger.info("开始更新物化视图")
-        view_results = update_database_views(config)
-        
-        results = {
-            'data_updates': update_results,
-            'view_updates': view_results
-        }
+        # 刷新物化视图
+        logger.info("开始刷新物化视图")
+        results = update_database_views(config)
         
         logger.info("每日更新完成")
         return results
