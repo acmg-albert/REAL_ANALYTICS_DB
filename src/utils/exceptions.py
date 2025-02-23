@@ -5,7 +5,7 @@ class ScrapingError(Exception):
     pass
 
 class DataValidationError(Exception):
-    """Raised when data validation fails."""
+    """数据验证错误异常"""
     pass
 
 class DatabaseError(Exception):
@@ -13,5 +13,13 @@ class DatabaseError(Exception):
     pass
 
 class ConfigurationError(Exception):
-    """Raised when configuration is invalid or missing."""
+    """配置错误异常"""
+    pass
+
+class ProcessingError(Exception):
+    """数据处理错误异常"""
+    pass
+
+class DataImportError(Exception):
+    """数据导入错误异常"""
     pass 

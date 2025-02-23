@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from ..utils.config import Config
 from ..database import SupabaseClient
-from ..utils.exceptions import ConfigurationError, ImportError, DataValidationError
+from ..utils.exceptions import ConfigurationError, DataImportError, DataValidationError
 
 # Configure logging
 logging.basicConfig(
@@ -57,7 +57,7 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
         int: Total number of records imported
         
     Raises:
-        ImportError: If import fails
+        DataImportError: If import fails
     """
     total_imported = 0
     total_rows = len(df)
@@ -95,7 +95,7 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
             except Exception as e:
                 logger.error(f"Error importing batch {start_idx//batch_size + 1}: {str(e)}")
                 logger.error(f"First record in failed batch: {records[0] if records else 'No records'}")
-                raise ImportError(f"Failed to import batch: {str(e)}") from e
+                raise DataImportError(f"Failed to import batch: {str(e)}") from e
     
     return total_imported
 
@@ -156,7 +156,7 @@ def main() -> int:
     except ConfigurationError as e:
         logger.error(f"Configuration error: {e}")
         return 1
-    except ImportError as e:
+    except DataImportError as e:
         logger.error(f"Import error: {e}")
         return 1
     except Exception as e:
