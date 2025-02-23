@@ -2,11 +2,25 @@ services:
   - type: web
     name: real-analytics-db
     env: python
+    # 构建命令 - 安装依赖
     buildCommand: |
       python -m pip install --upgrade pip
       mkdir -p data/raw data/processed logs
       pip install -r requirements.txt
-    startCommand: gunicorn src.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    # 启动命令 - 包含完整的数据处理流程
+    startCommand: |
+      # 运行数据抓取和处理
+      python -m src.scripts.scrape_rent_estimates
+      python -m src.scripts.process_rent_estimates
+      python -m src.scripts.import_rent_estimates
+      python -m src.scripts.scrape_vacancy_index
+      python -m src.scripts.process_vacancy_index
+      python -m src.scripts.import_vacancy_index
+      python -m src.scripts.scrape_time_on_market
+      python -m src.scripts.process_time_on_market
+      python -m src.scripts.import_time_on_market
+      # 启动调度器
+      gunicorn src.scripts.scheduler:app --workers 4 --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -21,6 +35,9 @@ services:
       - key: PORT
         value: 8000
     autoDeploy: true
+    healthCheckPath: /health
+    healthCheckTimeout: 300
+    # 排除测试和检查脚本
     excludeFiles:
       - tests/**/*
       - **/*test*.py
