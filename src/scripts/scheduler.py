@@ -3,6 +3,7 @@
 import logging
 import sys
 import subprocess
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -30,12 +31,22 @@ def run_script(script_name: str) -> bool:
             [sys.executable, "-m", f"src.scripts.{script_name}"],
             check=True,
             capture_output=True,
-            text=True
+            text=True,
+            env=os.environ.copy()  # 确保环境变量被正确传递
         )
         logger.info(f"脚本 {script_name} 执行完成")
+        if result.stdout:
+            logger.info(f"脚本输出: {result.stdout}")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"脚本 {script_name} 执行失败: {e.stderr}")
+        logger.error(f"脚本 {script_name} 执行失败")
+        if e.stdout:
+            logger.error(f"标准输出: {e.stdout}")
+        if e.stderr:
+            logger.error(f"错误输出: {e.stderr}")
+        return False
+    except Exception as e:
+        logger.error(f"执行脚本 {script_name} 时发生未知错误: {str(e)}")
         return False
 
 def update_database_views(config: Config):

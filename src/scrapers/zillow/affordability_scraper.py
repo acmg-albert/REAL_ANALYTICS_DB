@@ -244,41 +244,42 @@ class AffordabilityScraper:
             
         return True, None
         
-    def scrape(self) -> pd.DataFrame:
+    def scrape(self) -> Path:
         """
         抓取Zillow可负担能力数据。
         
         Returns:
-            pd.DataFrame: 抓取的数据
+            Path: 保存数据的CSV文件路径
+            
+        Raises:
+            ScrapingError: 当抓取过程失败时抛出
         """
         try:
-            # 获取CSV URL
-            csv_url = self._extract_csv_url(self._get_page_source())
+            # 获取页面源代码
+            self.logger.info("开始获取页面源代码")
+            page_source = self._get_page_source()
             
-            # 创建输出目录
-            output_dir = Path("data/raw")
-            output_dir.mkdir(parents=True, exist_ok=True)
+            # 提取CSV URL
+            self.logger.info("正在提取CSV URL")
+            csv_url = self._extract_csv_url(page_source)
             
             # 生成输出文件路径
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = output_dir / f"zillow_affordability_{timestamp}.csv"
+            output_path = Path("data") / f"zillow_affordability_{timestamp}.csv"
             
             # 下载CSV文件
+            self.logger.info(f"开始下载CSV文件到: {output_path}")
             df = self._download_csv(csv_url, output_path)
             
-            # 打印列名用于调试
-            self.logger.info(f"CSV列名: {list(df.columns)}")
-            
             # 验证数据
+            self.logger.info("验证下载的数据")
             is_valid, error_msg = self._validate_data(df)
             if not is_valid:
-                raise ScrapingError(f"Failed to validate data: {error_msg}")
-                
-            # 保存数据
-            df.to_csv(output_path, index=False)
-            self.logger.info(f"数据已保存到: {output_path}")
+                raise DataValidationError(f"数据验证失败: {error_msg}")
             
-            return df
+            self.logger.info(f"成功下载并验证数据，保存到: {output_path}")
+            return output_path
             
         except Exception as e:
-            raise ScrapingError(f"Failed to scrape affordability data: {str(e)}") 
+            self.logger.error(f"抓取过程失败: {str(e)}")
+            raise ScrapingError(f"抓取过程失败: {str(e)}") from e 

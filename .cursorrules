@@ -72,55 +72,108 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 
 # Scratchpad
 
-## 当前任务：创建Time On Market数据导入功能
+## 当前项目状态回顾（2024-02-23）
 
-### 任务分析
-需要完成以下主要部分：
-1. 创建数据库表
-2. 创建数据导入脚本
-3. 创建数据验证和转换功能
-4. 添加Supabase客户端支持
+### 已完成功能
+1. ApartmentList 数据流程（完整）
+   - 数据抓取
+   - 数据处理
+   - Supabase 数据导入更新
+   - 三个数据表和视图：
+     * apartment_list_rent_estimates, apartment_list_rent_estimates_view
+     * apartment_list_time_on_market, apartment_list_time_on_market_view
+     * apartment_list_vacancy_index, apartment_list_vacancy_index_view
+   - Render 部署测试成功
 
-### 进度
-[X] 创建数据库表
-  [X] 定义表结构
-  [X] 创建索引
-  [X] 设置RLS策略
-[X] 创建数据导入脚本
-  [X] 实现文件查找功能
-  [X] 实现数据验证
-  [X] 实现数据转换
-  [X] 实现批量导入
-[X] 添加Supabase客户端支持
-  [X] 添加insert_time_on_market方法
-  [X] 添加get_latest_time_on_market_date方法
+2. Zillow Affordability 数据流程（已完成）
+   - 数据抓取 ✓
+   - 数据处理 ✓
+   - Supabase 数据表和视图创建：
+     * zillow_new_homeowner_affordability_down_20pct
+     * zillow_new_homeowner_affordability_down_20pct_view
+   - 数据导入更新问题修复：
+     [X] 对比 ApartmentList 数据导入流程
+     [X] 识别具体问题（发现使用了不同的导入方式）
+     [X] 修复数据导入代码（统一使用 upsert 方法）
+     [X] 本地测试验证
+   - Render 部署更新：
+     [X] 更新 render.yaml 添加 Zillow 数据流程
+     [X] 提交更改到 GitHub
+     [X] 更新 scheduler.py 添加 Zillow 数据流程
+     [ ] 等待 Render 自动部署完成
+     [ ] 验证部署后的数据流程
 
-### 下一步
-1. 测试数据导入功能
-2. 添加到调度器中
-3. 更新文档
+### 当前任务
+[X] 测试修复后的 Zillow Affordability 数据导入功能
+  [X] 运行导入脚本
+  [X] 验证数据是否正确导入
+  [X] 检查物化视图是否正确更新
+[X] 更新 Render 部署配置
+  [X] 添加 Zillow 数据流程到 render.yaml
+  [X] 提交更改到 GitHub
+[X] 更新调度器配置
+  [X] 添加 Zillow 数据流程到 scheduler.py
+  [X] 提交更改到 GitHub
+  [X] 本地测试调度器
 
-# Lessons
+### 下一步计划
+[ ] 等待并验证 Render 部署
+  [ ] 监控部署状态
+  [ ] 检查部署后的日志
+  [ ] 验证数据流程是否正常运行
 
-## 代码组织规范
-- 保持与现有代码结构一致
-- 不要创建新的目录结构，除非确实需要
-- 导入脚本应该放在 `scripts` 目录下
-- 数据库表创建脚本应该放在 `database/sql` 目录下
-- 使用统一的命名规范（例如：`*_processed_*.csv` 作为处理后的文件名模式）
+[ ] 验证数据质量
+  [ ] 检查数据完整性
+  [ ] 验证数据一致性
+  [ ] 确认数据更新频率
 
-## 数据导入规范
-- 使用批量导入提高性能
-- 添加进度条显示导入进度
-- 详细的错误处理和日志记录
-- 数据验证应该包括：
-  - 必需字段检查
-  - 数据类型转换
-  - 空值处理
-  - 值范围验证
+[ ] 监控系统设置
+  [ ] 设置数据导入监控
+  [ ] 配置错误告警
+  [ ] 建立性能指标追踪
 
-## 数据库操作规范
-- 使用upsert而不是insert以避免重复
-- 使用service_role_key进行数据导入
-- 添加合适的索引提高查询性能
-- 实现RLS策略保护数据安全 
+### 项目路径重要提醒
+- 所有操作必须在 `E:\Cursor_AI\REAL_ANALYTICS_DB` 目录下进行
+- 使用反斜杠 `\` 而不是正斜杠 `/`
+- 所有相对路径都应该相对于这个目录
+- 在 PowerShell 中必须使用反斜杠 `\`
+
+### 项目要求
+- 所有代码、注释和文档必须使用英文
+- 每个数据源模块必须独立
+- 所有操作必须显示清晰的进度状态
+- 使用 Python venv 在 ./venv 目录
+- 在程序输出中包含调试信息
+- 在编辑文件前先阅读文件内容
+
+### 经验教训
+1. 数据导入流程标准化
+   - 使用 upsert 方法进行数据导入
+   - 添加适当的日志记录
+   - 显示清晰的进度条
+   - 验证导入结果
+
+2. 代码组织
+   - 保持模块独立性
+   - 使用统一的命名规范
+   - 添加适当的注释和文档
+   - 遵循代码风格指南
+
+3. 错误处理
+   - 添加详细的错误日志
+   - 实现错误重试机制
+   - 提供清晰的错误信息
+   - 保持数据一致性
+
+4. 部署流程
+   - 在本地完全测试后再部署
+   - 使用统一的配置管理
+   - 保护敏感信息
+   - 监控部署状态
+
+5. 数据流程改进
+   - 确保每个步骤都有清晰的进度显示
+   - 添加详细的日志记录
+   - 实现错误重试机制
+   - 验证数据完整性
+   - 监控数据更新频率

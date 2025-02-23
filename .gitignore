@@ -22,7 +22,6 @@ wheels/
 
 # Virtual Environment
 venv/
-env/
 ENV/
 
 # IDE
@@ -31,18 +30,28 @@ ENV/
 *.swp
 *.swo
 
-# Logs
+# Project specific
+.env
 logs/
+data/
 *.log
 
+# Test scripts
+src/scripts/check_data.py
+src/scripts/execute_sql.py
+test_*.py
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
 # Environment variables
-.env
 .env.local
 .env.*.local
 !.env.example
 
 # Data files
-data/
 *.csv
 *.xlsx
 *.json
@@ -52,7 +61,6 @@ data/
 htmlcov/
 .pytest_cache/
 .mypy_cache/
-test_*.py
 check_*.py
 cleanup_*.py
 verify_*.py
@@ -62,15 +70,8 @@ dist/
 build/
 
 # System Files
-.DS_Store
 Thumbs.db
 
 # Temporary files
-*.tmp
 *.bak
-*.swp
-*~
-
-# Debug files
-debug/
-debug.log 
+*~ 

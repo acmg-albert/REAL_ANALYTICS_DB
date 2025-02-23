@@ -50,7 +50,7 @@ class SupabaseClient:
             DatabaseError: If query execution fails
         """
         try:
-            # 如果有参数,替换查询中的命名参数
+            # Handle parameters if provided
             if params:
                 for key, value in params.items():
                     if value is None:
@@ -62,10 +62,19 @@ class SupabaseClient:
             
             result = self.client.rpc('raw_sql', {'command': query}).execute()
             
-            if result.data and result.data.get('status') == 'error':
+            if result.data and isinstance(result.data, dict) and result.data.get('status') == 'error':
                 raise DatabaseError(f"SQL execution failed: {result.data.get('message')}")
             
-            return result.data
+            # For SELECT queries, return the result data
+            if query.strip().upper().startswith('SELECT'):
+                if result.data and isinstance(result.data, list):
+                    if len(result.data) == 1 and isinstance(result.data[0], dict):
+                        return result.data[0]
+                    return result.data
+                return []
+            
+            # For other queries, return status
+            return {'status': 'success', 'affected_rows': len(result.data) if result.data else 0}
             
         except Exception as e:
             logger.error(f"Failed to execute SQL query: {e}")
@@ -161,6 +170,11 @@ class SupabaseClient:
             # 刷新time_on_market视图
             self.client.rpc('raw_sql', {
                 'command': 'REFRESH MATERIALIZED VIEW apartment_list_time_on_market_view;'
+            }).execute()
+            
+            # 刷新zillow_affordability视图
+            self.client.rpc('raw_sql', {
+                'command': 'REFRESH MATERIALIZED VIEW zillow_new_homeowner_affordability_down_20pct_view;'
             }).execute()
             
             logger.info("Successfully refreshed all materialized views")
@@ -409,6 +423,39 @@ class SupabaseClient:
             logger.error(f"批量插入上市时间记录失败: {e}")
             raise DatabaseError(f"批量插入上市时间记录失败: {e}") from e
 
+    def insert_zillow_affordability(self, records: List[Dict[str, Any]]) -> int:
+        """
+        Insert Zillow affordability records into database.
+        
+        Args:
+            records: List of Zillow affordability records to insert
+            
+        Returns:
+            int: Number of records processed
+            
+        Raises:
+            DatabaseError: If insertion fails
+        """
+        try:
+            # Use direct upsert method instead of raw SQL
+            result = self.client.table('zillow_new_homeowner_affordability_down_20pct')\
+                .upsert(
+                    records,
+                    on_conflict='region_id,date'
+                ).execute()
+            
+            # Refresh materialized views
+            self.refresh_materialized_views()
+            
+            processed_count = len(result.data) if result.data else 0
+            logger.info(f"Successfully inserted {processed_count} Zillow affordability records")
+            
+            return processed_count
+            
+        except Exception as e:
+            logger.error(f"Failed to insert Zillow affordability records: {e}")
+            raise DatabaseError(f"Failed to insert Zillow affordability records: {e}") from e
+
     def get_latest_dates(self) -> Dict[str, Optional[datetime]]:
         """
         Get latest dates from various tables.
@@ -417,7 +464,8 @@ class SupabaseClient:
             Dict containing latest dates for each table
         """
         try:
-            result = self.execute_sql(
+            # Get latest dates from ApartmentList tables
+            apartment_list_dates = self.execute_sql(
                 """
                 SELECT
                     (SELECT MAX(year || '-' || LPAD(month::text, 2, '0') || '-01')::date 
@@ -429,10 +477,19 @@ class SupabaseClient:
                 """
             )
             
+            # Get latest date from Zillow table
+            zillow_date = self.execute_sql(
+                """
+                SELECT MAX(date)::date as latest_date
+                FROM zillow_new_homeowner_affordability_down_20pct
+                """
+            )
+            
             return {
-                "rent_estimates": result.get("rent_estimates_date"),
-                "vacancy_index": result.get("vacancy_index_date"),
-                "time_on_market": result.get("time_on_market_date")
+                "rent_estimates": apartment_list_dates.get("rent_estimates_date"),
+                "vacancy_index": apartment_list_dates.get("vacancy_index_date"),
+                "time_on_market": apartment_list_dates.get("time_on_market_date"),
+                "zillow_new_homeowner_affordability_down_20pct": zillow_date.get("latest_date")
             }
             
         except Exception as e:
@@ -440,5 +497,6 @@ class SupabaseClient:
             return {
                 "rent_estimates": None,
                 "vacancy_index": None,
-                "time_on_market": None
+                "time_on_market": None,
+                "zillow_new_homeowner_affordability_down_20pct": None
             } 

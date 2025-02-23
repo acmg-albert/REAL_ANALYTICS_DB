@@ -4,7 +4,7 @@ import logging
 import sys
 from pathlib import Path
 
-from ..scrapers.zillow import AffordabilityScraper
+from ..scrapers.zillow.affordability_scraper import AffordabilityScraper
 from ..utils.config import Config
 from ..utils.exceptions import ConfigurationError, DataValidationError, ScrapingError
 
