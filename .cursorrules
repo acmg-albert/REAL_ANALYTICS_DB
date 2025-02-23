@@ -99,17 +99,18 @@ The goal is to help you maintain a big picture as well as the progress of the ta
    - Supabase 数据表和视图创建：
      * zillow_new_homeowner_affordability_down_20pct
      * zillow_new_homeowner_affordability_down_20pct_view
-   - 数据导入更新问题修复：
-     [X] 对比 ApartmentList 数据导入流程
-     [X] 识别具体问题（发现使用了不同的导入方式）
-     [X] 修复数据导入代码（统一使用 upsert 方法）
-     [X] 本地测试验证
-   - Render 部署更新：
-     [X] 更新 render.yaml 添加 Zillow 数据流程
-     [X] 提交更改到 GitHub
-     [X] 更新 scheduler.py 添加 Zillow 数据流程
-     [X] 等待 Render 自动部署完成
-     [X] 验证部署后的数据流程
+   - 数据导入更新问题修复 ✓
+   - Render 部署更新 ✓
+
+3. Zillow Renter Affordability 数据流程（新建）
+   - 代码文件创建 ✓
+     * src/scrapers/zillow/renter_affordability_scraper.py
+     * src/scripts/scrape_zillow_renter_affordability.py
+     * src/scrapers/zillow/renter_affordability_processor.py
+     * src/scripts/process_zillow_renter_affordability.py
+     * src/scripts/import_zillow_renter_affordability.py
+   - 数据库方法添加 ✓
+     * SupabaseClient.insert_zillow_renter_affordability()
 
 ### 当前任务
 [X] 测试修复后的 Zillow Affordability 数据导入功能
@@ -185,3 +186,16 @@ The goal is to help you maintain a big picture as well as the progress of the ta
    - 实现错误重试机制
    - 验证数据完整性
    - 监控数据更新频率
+
+### 新增经验教训
+6. 日期格式处理
+   - 支持多种日期格式（YYYY-MM-DD 和 MM/DD/YYYY）
+   - 在验证和处理阶段都要考虑日期格式兼容性
+   - 统一日期格式的处理方法
+   - 添加日期格式验证的错误处理
+
+7. 数据导入优化
+   - 使用批量导入提高性能
+   - 实现断点续传机制
+   - 添加数据验证步骤
+   - 记录导入进度和统计信息

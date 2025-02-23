@@ -23,6 +23,10 @@ services:
       python -m src.scripts.scrape_zillow_affordability
       python -m src.scripts.process_zillow_affordability
       python -m src.scripts.import_zillow_affordability
+      # Zillow Renter Affordability 数据流程
+      python -m src.scripts.scrape_zillow_renter_affordability
+      python -m src.scripts.process_zillow_renter_affordability
+      python -m src.scripts.import_zillow_renter_affordability
       # 启动调度器
       gunicorn src.scripts.scheduler:app --workers 4 --bind 0.0.0.0:$PORT
     envVars:
