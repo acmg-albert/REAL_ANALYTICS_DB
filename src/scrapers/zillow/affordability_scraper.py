@@ -28,7 +28,7 @@ class AffordabilityScraper:
     """负责从Zillow抓取新房主可负担能力数据的爬虫类"""
     
     BASE_URL = "https://www.zillow.com/research/data/"
-    CSV_PATTERN = r'https:\\?/\\?/files\.zillowstatic\.com\\?/research\\?/public_csvs\\?/new_homeowner_affordability\\?/Metro_new_homeowner_affordability.*\.csv\?t=\d+'
+    CSV_PATTERN = r'https:\\?/\\?/files\.zillowstatic\.com\\?/research\\?/public_csvs\\?/new_homeowner_affordability\\?/Metro_new_homeowner_affordability.*?\.csv\?t=\d+'
     
     def __init__(self, config):
         """初始化爬虫
@@ -120,8 +120,7 @@ class AffordabilityScraper:
         """
         try:
             # 使用正则表达式查找匹配的URL
-            pattern = r'https:\\?/\\?/files\.zillowstatic\.com\\?/research\\?/public_csvs\\?/new_homeowner_affordability\\?/Metro_new_homeowner_affordability.*?\.csv\?t=\d+'
-            matches = re.findall(pattern, page_source)
+            matches = re.findall(self.CSV_PATTERN, page_source)
             
             if not matches:
                 raise ScrapingError("无法在页面中找到CSV下载链接")
@@ -143,6 +142,10 @@ class AffordabilityScraper:
             self.logger.error(f"提取CSV URL时发生错误: {str(e)}")
             raise ScrapingError(f"提取CSV URL时发生错误: {str(e)}")
             
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+    )
     def _download_csv(self, url: str, output_path: Path) -> pd.DataFrame:
         """
         Download CSV file from the given URL.
@@ -157,32 +160,42 @@ class AffordabilityScraper:
         # 确保输出目录存在
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        # 下载文件
-        response = requests.get(url, headers=self.session.headers, stream=True)
-        response.raise_for_status()
-        
-        # 获取文件大小
-        total_size = int(response.headers.get('content-length', 0))
-        
-        # 使用tqdm显示下载进度
-        with open(output_path, 'wb') as f:
-            with tqdm(
-                total=total_size,
-                unit='iB',
-                unit_scale=True,
-                unit_divisor=1024,
-            ) as pbar:
-                for data in response.iter_content(chunk_size=1024):
-                    size = f.write(data)
-                    pbar.update(size)
-                    
-        # 读取CSV文件
         try:
+            # 下载文件
+            self.logger.info(f"正在从 {url} 下载文件")
+            response = self.session.get(url, stream=True)
+            response.raise_for_status()
+            
+            # 获取文件大小
+            total_size = int(response.headers.get('content-length', 0))
+            
+            # 使用tqdm显示下载进度
+            with open(output_path, 'wb') as f:
+                with tqdm(
+                    total=total_size,
+                    unit='iB',
+                    unit_scale=True,
+                    unit_divisor=1024,
+                ) as pbar:
+                    for data in response.iter_content(chunk_size=1024):
+                        size = f.write(data)
+                        pbar.update(size)
+                        
+            # 读取CSV文件
             df = pd.read_csv(output_path)
             self.logger.info(f"成功读取CSV文件，包含 {len(df)} 行数据")
             return df
+            
+        except requests.RequestException as e:
+            self.logger.error(f"下载文件失败: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                self.logger.error(f"响应状态码: {e.response.status_code}")
+                self.logger.error(f"响应内容: {e.response.text[:500]}...")
+            if output_path.exists():
+                output_path.unlink()
+            raise ScrapingError(f"下载文件失败: {str(e)}") from e
         except Exception as e:
-            self.logger.error(f"读取CSV文件失败: {str(e)}")
+            self.logger.error(f"处理文件失败: {str(e)}")
             if output_path.exists():
                 output_path.unlink()
             raise
