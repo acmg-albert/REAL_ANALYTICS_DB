@@ -70,6 +70,14 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - 每个数据源模块必须独立
 - 所有操作必须显示清晰的进度状态
 
+## 爬虫改进经验
+- 动态获取 CSV URL 比使用固定 URL 更可靠
+- 需要正确处理 URL 中的时间戳参数
+- 添加适当的请求头和用户代理
+- 实现重试机制和错误处理
+- 添加随机延迟避免被封禁
+- 验证响应内容和文件完整性
+
 # Scratchpad
 
 ## 当前项目状态回顾（2024-02-23）
@@ -100,8 +108,8 @@ The goal is to help you maintain a big picture as well as the progress of the ta
      [X] 更新 render.yaml 添加 Zillow 数据流程
      [X] 提交更改到 GitHub
      [X] 更新 scheduler.py 添加 Zillow 数据流程
-     [ ] 等待 Render 自动部署完成
-     [ ] 验证部署后的数据流程
+     [X] 等待 Render 自动部署完成
+     [X] 验证部署后的数据流程
 
 ### 当前任务
 [X] 测试修复后的 Zillow Affordability 数据导入功能
@@ -117,20 +125,20 @@ The goal is to help you maintain a big picture as well as the progress of the ta
   [X] 本地测试调度器
 
 ### 下一步计划
-[ ] 等待并验证 Render 部署
-  [ ] 监控部署状态
-  [ ] 检查部署后的日志
-  [ ] 验证数据流程是否正常运行
+[X] 等待并验证 Render 部署
+  [X] 监控部署状态
+  [X] 检查部署后的日志
+  [X] 验证数据流程是否正常运行
 
-[ ] 验证数据质量
-  [ ] 检查数据完整性
-  [ ] 验证数据一致性
-  [ ] 确认数据更新频率
+[X] 验证数据质量
+  [X] 检查数据完整性
+  [X] 验证数据一致性
+  [X] 确认数据更新频率
 
-[ ] 监控系统设置
-  [ ] 设置数据导入监控
-  [ ] 配置错误告警
-  [ ] 建立性能指标追踪
+[X] 监控系统设置
+  [X] 设置数据导入监控
+  [X] 配置错误告警
+  [X] 建立性能指标追踪
 
 ### 项目路径重要提醒
 - 所有操作必须在 `E:\Cursor_AI\REAL_ANALYTICS_DB` 目录下进行

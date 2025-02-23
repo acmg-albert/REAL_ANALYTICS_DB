@@ -6,6 +6,7 @@ It includes functionality for downloading CSV data and validating its contents.
 """
 
 import logging
+import random
 import re
 import time
 from datetime import datetime
@@ -16,7 +17,7 @@ from urllib.parse import urljoin
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, before_sleep_log
 from tqdm import tqdm
 
 from ...utils.config import Config
@@ -30,6 +31,28 @@ class AffordabilityScraper:
     BASE_URL = "https://www.zillow.com/research/data/"
     CSV_PATTERN = r'https:\\?/\\?/files\.zillowstatic\.com\\?/research\\?/public_csvs\\?/new_homeowner_affordability\\?/Metro_new_homeowner_affordability.*?\.csv\?t=\d+'
     
+    # 浏览器指纹
+    BROWSER_SIGNATURES = [
+        {
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'sec_ch_ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+            'sec_ch_ua_platform': '"Windows"',
+            'sec_ch_ua_mobile': '?0'
+        },
+        {
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+            'sec_ch_ua': 'Firefox;v="122"',
+            'sec_ch_ua_platform': '"Windows"',
+            'sec_ch_ua_mobile': '?0'
+        },
+        {
+            'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15',
+            'sec_ch_ua': 'Safari;v="17.2"',
+            'sec_ch_ua_platform': '"macOS"',
+            'sec_ch_ua_mobile': '?0'
+        }
+    ]
+
     def __init__(self, config):
         """初始化爬虫
         
@@ -44,24 +67,35 @@ class AffordabilityScraper:
             Path(path).mkdir(exist_ok=True)
         
         self.session = requests.Session()
+        self._update_session_headers()
+
+    def _update_session_headers(self):
+        """更新会话头部信息，使用随机的浏览器指纹"""
+        browser = random.choice(self.BROWSER_SIGNATURES)
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'User-Agent': browser['user_agent'],
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-Site': 'cross-site',
             'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
-            'Referer': 'https://www.zillow.com/research/'
+            'sec-ch-ua': browser['sec_ch_ua'],
+            'sec-ch-ua-mobile': browser['sec_ch_ua_mobile'],
+            'sec-ch-ua-platform': browser['sec_ch_ua_platform'],
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'DNT': '1',
+            'Referer': 'https://www.google.com/search?q=zillow+research+data'
         })
         
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10)
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=4, max=30),
+        before_sleep=before_sleep_log(logger, logging.INFO)
     )
     def _get_page_source(self) -> str:
         """
@@ -74,10 +108,22 @@ class AffordabilityScraper:
             ScrapingError: If unable to fetch the page after retries
         """
         try:
+            # 每次请求前更新头部信息
+            self._update_session_headers()
+            
+            # 添加随机延迟
+            delay = random.uniform(2, 5)
+            self.logger.info(f"等待 {delay:.2f} 秒后发起请求...")
+            time.sleep(delay)
+            
             # 首先访问研究页面
             self.logger.info(f"正在访问页面: {self.BASE_URL}")
             
-            response = self.session.get(self.BASE_URL, timeout=self.config.request_timeout)
+            response = self.session.get(
+                self.BASE_URL,
+                timeout=self.config.request_timeout,
+                allow_redirects=True
+            )
             self.logger.info(f"获得响应: 状态码={response.status_code}")
             
             # 无论成功与否都保存响应内容
@@ -94,6 +140,10 @@ class AffordabilityScraper:
             # 检查响应内容
             if len(response.text.strip()) == 0:
                 raise ScrapingError("页面响应内容为空")
+                
+            # 检查是否包含验证页面
+            if 'px-captcha' in response.text or 'Access to this page has been denied' in response.text:
+                raise ScrapingError("遇到验证页面，需要重试")
             
             return response.text
             
@@ -143,8 +193,9 @@ class AffordabilityScraper:
             raise ScrapingError(f"提取CSV URL时发生错误: {str(e)}")
             
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10)
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=4, max=30),
+        before_sleep=before_sleep_log(logger, logging.INFO)
     )
     def _download_csv(self, url: str, output_path: Path) -> pd.DataFrame:
         """
@@ -161,11 +212,29 @@ class AffordabilityScraper:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         try:
+            # 每次请求前更新头部信息
+            self._update_session_headers()
+            
+            # 添加随机延迟
+            delay = random.uniform(1, 3)
+            self.logger.info(f"等待 {delay:.2f} 秒后下载文件...")
+            time.sleep(delay)
+            
             # 下载文件
             self.logger.info(f"正在从 {url} 下载文件")
-            response = self.session.get(url, stream=True)
+            response = self.session.get(
+                url,
+                stream=True,
+                timeout=self.config.request_timeout,
+                allow_redirects=True
+            )
             response.raise_for_status()
             
+            # 检查内容类型
+            content_type = response.headers.get('content-type', '')
+            if 'text/csv' not in content_type and 'application/csv' not in content_type:
+                self.logger.warning(f"意外的内容类型: {content_type}")
+                
             # 获取文件大小
             total_size = int(response.headers.get('content-length', 0))
             
@@ -176,15 +245,25 @@ class AffordabilityScraper:
                     unit='iB',
                     unit_scale=True,
                     unit_divisor=1024,
+                    desc="下载进度"
                 ) as pbar:
-                    for data in response.iter_content(chunk_size=1024):
+                    for data in response.iter_content(chunk_size=8192):
                         size = f.write(data)
                         pbar.update(size)
+            
+            # 验证文件大小
+            if total_size > 0 and output_path.stat().st_size < total_size:
+                raise ScrapingError("下载的文件不完整")
                         
             # 读取CSV文件
-            df = pd.read_csv(output_path)
-            self.logger.info(f"成功读取CSV文件，包含 {len(df)} 行数据")
-            return df
+            try:
+                df = pd.read_csv(output_path)
+                self.logger.info(f"成功读取CSV文件，包含 {len(df)} 行数据")
+                return df
+            except pd.errors.EmptyDataError:
+                raise DataValidationError("CSV文件为空")
+            except pd.errors.ParserError as e:
+                raise DataValidationError(f"CSV文件格式错误: {str(e)}")
             
         except requests.RequestException as e:
             self.logger.error(f"下载文件失败: {str(e)}")
