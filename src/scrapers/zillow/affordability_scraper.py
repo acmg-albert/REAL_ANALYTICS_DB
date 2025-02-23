@@ -8,7 +8,6 @@ It includes functionality for downloading CSV data and validating its contents.
 import logging
 import re
 import time
-import random
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
@@ -17,7 +16,7 @@ from urllib.parse import urljoin
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from tenacity import retry, stop_after_attempt, wait_exponential, before_sleep_log
+from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 
 from ...utils.config import Config
@@ -45,17 +44,9 @@ class AffordabilityScraper:
             Path(path).mkdir(exist_ok=True)
         
         self.session = requests.Session()
-        # 随机选择一个User-Agent
-        user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/120.0.0.0',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        ]
         self.session.headers.update({
-            'User-Agent': random.choice(user_agents),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
@@ -64,16 +55,13 @@ class AffordabilityScraper:
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'DNT': '1',
+            'Cache-Control': 'max-age=0',
             'Referer': 'https://www.zillow.com/research/'
         })
         
     @retry(
-        stop=stop_after_attempt(5),  # 增加重试次数
-        wait=wait_exponential(multiplier=2, min=4, max=30),  # 增加等待时间
-        before_sleep=before_sleep_log(logger, logging.INFO)  # 在重试前记录日志
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
     )
     def _get_page_source(self) -> str:
         """
@@ -86,19 +74,10 @@ class AffordabilityScraper:
             ScrapingError: If unable to fetch the page after retries
         """
         try:
-            # 添加随机延迟
-            delay = random.uniform(2, 5)
-            self.logger.info(f"等待 {delay:.2f} 秒后发起请求...")
-            time.sleep(delay)
-            
             # 首先访问研究页面
             self.logger.info(f"正在访问页面: {self.BASE_URL}")
             
-            response = self.session.get(
-                self.BASE_URL,
-                timeout=self.config.request_timeout,
-                allow_redirects=True
-            )
+            response = self.session.get(self.BASE_URL, timeout=self.config.request_timeout)
             self.logger.info(f"获得响应: 状态码={response.status_code}")
             
             # 无论成功与否都保存响应内容
@@ -115,10 +94,6 @@ class AffordabilityScraper:
             # 检查响应内容
             if len(response.text.strip()) == 0:
                 raise ScrapingError("页面响应内容为空")
-                
-            # 检查是否包含验证页面
-            if 'px-captcha' in response.text or 'Access to this page has been denied' in response.text:
-                raise ScrapingError("遇到验证页面，需要重试")
             
             return response.text
             
