@@ -51,7 +51,8 @@ def update_database_views(config: Config):
         views = [
             'apartment_list_rent_estimates_view',
             'apartment_list_vacancy_index_view',
-            'apartment_list_time_on_market_view'
+            'apartment_list_time_on_market_view',
+            'zillow_new_homeowner_affordability_down_20pct_view'
         ]
         
         results = []
@@ -93,7 +94,10 @@ def run_full_update() -> list:
         'import_vacancy_index',
         'scrape_time_on_market',
         'process_time_on_market',
-        'import_time_on_market'
+        'import_time_on_market',
+        'scrape_zillow_affordability',
+        'process_zillow_affordability',
+        'import_zillow_affordability'
     ]
     
     for script in scripts:
