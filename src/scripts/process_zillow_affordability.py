@@ -53,8 +53,21 @@ def main():
         df = pd.read_csv(latest_file)
         _validate_data(df)
         
-        # Process data
-        processed_df = df.copy()
+        # Get metadata columns and date columns
+        metadata_cols = ['RegionID', 'SizeRank', 'RegionName', 'RegionType', 'StateName']
+        date_cols = [col for col in df.columns if col not in metadata_cols]
+        
+        # Convert from wide to long format
+        df_long = pd.melt(
+            df,
+            id_vars=metadata_cols,
+            value_vars=date_cols,
+            var_name='date',
+            value_name='new_home_affordability_down_20pct'
+        )
+        
+        # Convert date format
+        df_long['date'] = pd.to_datetime(df_long['date']).dt.strftime('%Y-%m-%d')
         
         # Rename columns to match our schema
         column_mapping = {
@@ -62,14 +75,22 @@ def main():
             'SizeRank': 'size_rank',
             'RegionName': 'region_name',
             'RegionType': 'region_type',
-            'StateName': 'state_name',
-            'Date': 'date',
-            'NewHomeownerAffordabilityDown20Pct': 'new_home_affordability_down_20pct'
+            'StateName': 'state_name'
         }
-        processed_df = processed_df.rename(columns=column_mapping)
+        processed_df = df_long.rename(columns=column_mapping)
         
-        # Convert date to proper format
-        processed_df['date'] = pd.to_datetime(processed_df['date']).dt.strftime('%Y-%m-%d')
+        # Handle NaN values
+        processed_df['new_home_affordability_down_20pct'] = processed_df['new_home_affordability_down_20pct'].replace([np.inf, -np.inf, np.nan], None)
+        
+        # Ensure correct data types
+        processed_df['region_id'] = processed_df['region_id'].astype(str)
+        processed_df['size_rank'] = processed_df['size_rank'].astype(int)
+        processed_df['region_name'] = processed_df['region_name'].astype(str)
+        processed_df['region_type'] = processed_df['region_type'].astype(str)
+        processed_df['state_name'] = processed_df['state_name'].fillna('').astype(str)
+        
+        # Sort by date and region
+        processed_df = processed_df.sort_values(['date', 'size_rank'])
         
         # Generate output filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -77,7 +98,8 @@ def main():
         
         # Save processed data
         processed_df.to_csv(output_path, index=False)
-        logger.info(f"Successfully processed Zillow affordability data to: {output_path}")
+        logger.info(f"Successfully processed {len(processed_df)} records")
+        logger.info(f"Data saved to: {output_path}")
         
         return 0
         
