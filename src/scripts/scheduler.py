@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -20,6 +21,22 @@ app = Flask(__name__)
 
 # 创建调度器
 scheduler = BackgroundScheduler()
+
+def run_script(script_name: str) -> bool:
+    """运行指定的Python脚本。"""
+    try:
+        logger.info(f"开始执行脚本: {script_name}")
+        result = subprocess.run(
+            [sys.executable, "-m", f"src.scripts.{script_name}"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        logger.info(f"脚本 {script_name} 执行完成")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"脚本 {script_name} 执行失败: {e.stderr}")
+        return False
 
 def update_database_views(config: Config):
     """Update database views."""
@@ -45,15 +62,15 @@ def update_database_views(config: Config):
                 
                 if result.data and result.data.get('status') == 'success':
                     logger.info(f"已刷新视图: {view_name}")
-                    results.append({'view': view_name, 'status': 'success'})
+                    results.append({'status': 'success', 'view': view_name})
                 else:
                     logger.error(f"刷新视图失败: {view_name}")
                     logger.error(f"错误信息: {result.data}")
-                    results.append({'view': view_name, 'status': 'error', 'error': str(result.data)})
+                    results.append({'status': 'error', 'view': view_name, 'error': str(result.data)})
             except Exception as e:
                 error_msg = f"刷新视图 {view_name} 时发生错误: {str(e)}"
                 logger.error(error_msg)
-                results.append({'view': view_name, 'status': 'error', 'error': error_msg})
+                results.append({'status': 'error', 'view': view_name, 'error': error_msg})
                 
         return results
                 
@@ -62,19 +79,45 @@ def update_database_views(config: Config):
         logger.error(error_msg)
         return [{'status': 'error', 'error': error_msg}]
 
+def run_full_update() -> list:
+    """运行完整的数据更新流程。"""
+    results = []
+    
+    # 运行所有数据处理脚本
+    scripts = [
+        'scrape_rent_estimates',
+        'process_rent_estimates',
+        'import_rent_estimates',
+        'scrape_vacancy_index',
+        'process_vacancy_index',
+        'import_vacancy_index',
+        'scrape_time_on_market',
+        'process_time_on_market',
+        'import_time_on_market'
+    ]
+    
+    for script in scripts:
+        success = run_script(script)
+        results.append({
+            'script': script,
+            'status': 'success' if success else 'error'
+        })
+    
+    # 加载配置
+    config = Config.from_env()
+    
+    # 刷新物化视图
+    logger.info("开始刷新物化视图")
+    view_results = update_database_views(config)
+    results.extend(view_results)
+    
+    logger.info("完整数据更新流程完成")
+    return results
+
 def run_daily_update():
     """Run daily update tasks."""
     try:
-        # Load configuration
-        config = Config.from_env()
-        
-        # 刷新物化视图
-        logger.info("开始刷新物化视图")
-        results = update_database_views(config)
-        
-        logger.info("每日更新完成")
-        return results
-        
+        return run_full_update()
     except Exception as e:
         error_msg = f"每日更新失败: {e}"
         logger.error(error_msg)
@@ -102,7 +145,8 @@ def home():
 @app.route('/run-update')
 def trigger_update():
     """Manually trigger update."""
-    results = run_daily_update()
+    logger.info("手动触发完整数据更新流程")
+    results = run_full_update()
     return jsonify({
         'status': 'update triggered',
         'results': results,
