@@ -1,4 +1,4 @@
-"""Script to import time on market data into Supabase."""
+"""Script to import ApartmentList time on market data into Supabase."""
 
 import logging
 import sys
@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 import pandas as pd
 from tqdm import tqdm
 
-from ..database import SupabaseClient
+from ..database.apartment_list.time_on_market_client import TimeOnMarketClient
 from ..utils.config import Config
 from ..utils.exceptions import ConfigurationError, DataValidationError
 
@@ -129,13 +129,13 @@ def validate_data(df: pd.DataFrame) -> None:
         if (valid_values['time_on_market'] < 0).any():
             raise DataValidationError("Found negative time on market values")
 
-def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_size: int = 1000) -> int:
+def import_data_in_batches(df: pd.DataFrame, client: TimeOnMarketClient, batch_size: int = 1000) -> int:
     """
     Import data into Supabase in batches.
     
     Args:
         df: DataFrame to import
-        supabase: Supabase client
+        client: TimeOnMarketClient instance
         batch_size: Number of records per batch
         
     Returns:
@@ -160,12 +160,7 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
                 records = batch_df.to_dict('records')
                 
                 # 导入数据
-                result = supabase.client.table('apartment_list_time_on_market')\
-                    .upsert(records, on_conflict='location_fips_code,year_month')\
-                    .execute()
-                
-                # 更新进度
-                rows_imported = len(records)
+                rows_imported = client.insert_records(records)
                 total_imported += rows_imported
                 pbar.update(rows_imported)
                 
@@ -181,7 +176,7 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
 
 def main() -> int:
     """
-    Main entry point for the time on market import script.
+    Main entry point for the ApartmentList time on market import script.
     
     Returns:
         int: Exit code (0 for success, 1 for failure)
@@ -204,17 +199,17 @@ def main() -> int:
         validate_data(df_transformed)
         logger.info(f"Data validation passed. Found {len(df_transformed)} records")
         
-        # Initialize Supabase client with service role key
+        # Initialize TimeOnMarketClient with service role key
         if not config.supabase_service_role_key:
             raise ConfigurationError("SUPABASE_SERVICE_ROLE_KEY is required for data import")
             
-        supabase = SupabaseClient(
+        client = TimeOnMarketClient(
             url=config.supabase_url,
             key=config.supabase_service_role_key
         )
         
         # Import data
-        total_imported = import_data_in_batches(df_transformed, supabase)
+        total_imported = import_data_in_batches(df_transformed, client)
         logger.info(f"Successfully imported {total_imported} records")
         
         return 0

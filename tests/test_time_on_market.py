@@ -14,10 +14,10 @@ project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 from src.scrapers.apartment_list.time_on_market_scraper import TimeOnMarketScraper
-from src.scripts.import_time_on_market import find_latest_processed_file, transform_data, validate_data, import_data_in_batches
+from src.scripts.import_apartment_list_time_on_market import find_latest_processed_file, transform_data, validate_data, import_data_in_batches
 from src.utils.config import Config
 from src.utils.exceptions import DataValidationError, ScrapingError
-from src.database import SupabaseClient
+from src.database import TimeOnMarketClient
 
 # Configure logging
 logging.basicConfig(
@@ -40,7 +40,7 @@ class TestTimeOnMarket(TestCase):
         cls.config = Config.from_env()
         
         # Initialize Supabase client
-        cls.supabase = SupabaseClient(
+        cls.client = TimeOnMarketClient(
             url=cls.config.supabase_url,
             key=cls.config.supabase_service_role_key
         )
@@ -111,33 +111,33 @@ class TestTimeOnMarket(TestCase):
             validate_data(df_transformed)
             
             # Import data
-            total_imported = import_data_in_batches(df_transformed, self.supabase)
+            total_imported = import_data_in_batches(df_transformed, self.client)
             self.assertGreater(total_imported, 0)
             
             # Verify data in database
-            response = self.supabase.client.table('apartment_list_time_on_market') \
-                .select('*') \
-                .in_('location_fips_code', ['12345', '67890']) \
-                .execute()
-                
-            self.assertIsNotNone(response.data)
-            self.assertGreater(len(response.data), 0)
+            result = self.client.execute_sql(
+                f"""
+                SELECT * FROM {self.client.TABLE_NAME}
+                WHERE location_fips_code IN ('12345', '67890')
+                ORDER BY location_fips_code;
+                """
+            )
+            self.assertIsNotNone(result)
+            self.assertGreater(len(result), 0)
             
             # Clean up test data
             test_file.unlink()
             
             # Clean up database test data
-            for fips in ['12345', '67890']:
-                self.supabase.client.table('apartment_list_time_on_market')\
-                    .delete()\
-                    .eq('location_fips_code', fips)\
-                    .execute()
+            self.client.execute_sql(
+                f"""
+                DELETE FROM {self.client.TABLE_NAME}
+                WHERE location_fips_code IN ('12345', '67890');
+                """
+            )
             
             # Refresh materialized view
-            self.supabase.client.rpc(
-                'raw_sql',
-                {'command': "REFRESH MATERIALIZED VIEW db_view_apartment_list_time_on_market_1_3;"}
-            ).execute()
+            self.client.refresh_materialized_view(self.client.VIEW_NAME)
             
             logger.info("Import test passed")
             
@@ -156,7 +156,7 @@ class TestTimeOnMarket(TestCase):
             validate_data(df_transformed)
             
             # Import data
-            total_imported = import_data_in_batches(df_transformed, self.supabase)
+            total_imported = import_data_in_batches(df_transformed, self.client)
             self.assertGreater(total_imported, 0)
             
             logger.info("End-to-end test passed")

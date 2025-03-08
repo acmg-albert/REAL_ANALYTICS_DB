@@ -1,10 +1,10 @@
-"""Script to process Zillow new renter affordability data."""
+"""Script to process ApartmentList rent estimates data."""
 
 import logging
 import sys
 from pathlib import Path
 
-from ..scrapers.zillow.renter_affordability_processor import RenterAffordabilityProcessor
+from ..scrapers.apartment_list.rent_estimates_processor import RentEstimatesProcessor
 from ..utils.exceptions import ProcessingError, DataValidationError
 
 # Configure logging
@@ -18,31 +18,30 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def find_latest_raw_file(data_dir: Path) -> Path:
-    """Find the latest raw Zillow renter affordability file."""
+def find_latest_raw_file() -> Path:
+    """Find the latest raw rent estimates file in the data directory."""
+    data_dir = Path("data")
     # 只查找原始文件，不包含 "processed" 的文件
-    raw_files = [f for f in data_dir.glob("zillow_renter_affordability_2*.csv") 
+    raw_files = [f for f in data_dir.glob("rent_estimates_2*.csv") 
                 if "processed" not in f.name]
     
     if not raw_files:
-        raise FileNotFoundError("No raw Zillow renter affordability files found")
-    latest_file = max(raw_files, key=lambda p: p.stat().st_mtime)
-    logger.debug(f"Found latest file: {latest_file}")
-    return latest_file
+        raise FileNotFoundError("No raw rent estimates files found")
+        
+    return max(raw_files, key=lambda p: p.stat().st_mtime)
 
 def main():
-    """Main entry point for processing Zillow renter affordability data."""
+    """Main entry point for the ApartmentList rent estimates processing script."""
     try:
         # Find latest raw data file
-        data_dir = Path("data")
-        input_file = find_latest_raw_file(data_dir)
+        input_file = find_latest_raw_file()
         logger.info(f"Processing file: {input_file}")
         
-        # Initialize processor and process data
-        processor = RenterAffordabilityProcessor()
-        output_path = processor.process(input_file)
+        # Initialize processor with input file and process data
+        processor = RentEstimatesProcessor(input_file)
+        output_path = processor.process()
         
-        logger.info(f"Successfully processed data and saved to: {output_path}")
+        logger.info(f"Successfully processed rent estimates data to: {output_path}")
         return 0
         
     except FileNotFoundError as e:
@@ -58,5 +57,5 @@ def main():
         logger.exception("Unexpected error occurred")
         return 1
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main()) 

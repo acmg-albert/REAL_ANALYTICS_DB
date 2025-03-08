@@ -1,4 +1,4 @@
-"""Script to scrape time on market data from Apartment List."""
+"""Script to scrape ApartmentList time on market data."""
 
 import logging
 import sys
@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def main():
-    """Main entry point for the time on market scraping script."""
+    """Main entry point for the ApartmentList time on market scraping script."""
     try:
         # Load configuration
         config = Config.from_env()

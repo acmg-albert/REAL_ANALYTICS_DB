@@ -1,4 +1,4 @@
-"""Script to scrape vacancy index data from Apartment List."""
+"""Script to scrape ApartmentList vacancy index data."""
 
 import logging
 import sys
@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def main():
-    """Main entry point for the vacancy index scraping script."""
+    """Main entry point for the ApartmentList vacancy index scraping script."""
     try:
         # Load configuration
         config = Config.from_env()

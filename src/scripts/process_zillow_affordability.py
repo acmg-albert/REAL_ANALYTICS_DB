@@ -41,12 +41,15 @@ def main():
     try:
         # Get the most recent raw data file
         data_dir = Path("data")
-        csv_files = list(data_dir.glob("zillow_affordability_2*.csv"))
-        if not csv_files:
+        # 只查找原始文件，不包含 "processed" 的文件
+        raw_files = [f for f in data_dir.glob("zillow_affordability_2*.csv") 
+                    if "processed" not in f.name]
+        
+        if not raw_files:
             logger.error("No Zillow affordability data files found")
             return 1
             
-        latest_file = max(csv_files, key=lambda p: p.stat().st_mtime)
+        latest_file = max(raw_files, key=lambda p: p.stat().st_mtime)
         logger.info(f"Processing {latest_file}")
         
         # Read and validate data

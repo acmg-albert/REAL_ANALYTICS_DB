@@ -87,6 +87,58 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - 需要验证数据完整性和格式
 - 保持 URL 参数的一致性
 
+## Supabase 数据更新规则 - 重要！
+- 数据表更新必须遵循以下规则：
+  1. 新地区(locations)处理：
+     * 如果发现新的地区，必须添加该地区的所有历史数据
+     * 确保新地区有完整的历史数据记录
+  
+  2. 现有地区新月份数据：
+     * 对已存在的地区，只添加新月份的数据
+     * 保持数据的连续性
+  
+  3. 历史数据更新规则：
+     * 比较新数据和数据库中的现有值
+     * 只有当新数据不为空(NOT NULL)时才更新
+     * 当新数据为空(NULL)时保留数据库中的现有值
+     * 防止空值覆盖有效数据
+  
+  4. 实现要求：
+     * 使用 upsert 操作进行数据更新
+     * 正确处理 NULL 值
+     * 在数据库查询中实现适当的 NULL 值处理
+     * 确保数据完整性和连续性
+     * 防止意外的数据丢失
+
+## 代码重构注意事项
+- 重构数据库客户端时必须保持现有的数据更新逻辑不变
+- 每个数据表应该有独立的客户端类
+- 在移动或修改代码时必须确保：
+  * 数据更新规则保持不变
+  * NULL 值处理逻辑保持不变
+  * upsert 操作逻辑保持不变
+  * 数据验证逻辑保持不变
+
+## 数据库字段命名规则 - 重要！
+- 数据处理时必须严格遵循数据库表的字段命名
+- 已确认的字段名：
+  * vacancy_index 表：`vacancy_index`（不是 vacancy_index_overall）
+  * time_on_market 表：`time_on_market`（不是 time_on_market_overall）
+  * 在处理数据时保持与数据库表结构的一致性
+  * 在修改字段名之前先确认数据库表的实际结构
+
+## 数据表字段结构 - 重要！
+- ApartmentList Rent Estimates 表包含三个指标：
+  * rent_estimate_overall
+  * rent_estimate_1br
+  * rent_estimate_2br
+
+- ApartmentList Time on Market 表只有一个指标：
+  * time_on_market（不包含1br和2br）
+
+- ApartmentList Vacancy Index 表只有一个指标：
+  * vacancy_index（不包含1br和2br）
+
 # Scratchpad
 
 ## 当前项目状态回顾（2024-03-08）
@@ -126,18 +178,49 @@ The goal is to help you maintain a big picture as well as the progress of the ta
    - 数据导入 ✓
    - 物化视图刷新 ✓
 
-### 当前任务
-[X] 优化 Zillow Renter Affordability 抓取代码
-  [X] 找到直接 CSV URL
-  [X] 更新抓取逻辑
-  [X] 测试新的抓取方法
-  [X] 验证数据完整性
+### 当前任务：数据库客户端重构（2024-03-08）
 
-[X] 代码清理和文档更新
-  [X] 更新所有代码注释
-  [X] 更新 README.md
-  [X] 更新 API 文档
-  [X] 更新部署文档
+### 重构目标
+- 将 Supabase 客户端按数据表拆分
+- 保持现有数据更新逻辑不变
+- 确保代码模块化和可维护性
+
+### 重构计划
+[X] 第一阶段：基础设施
+  [X] 创建新的目录结构
+  [X] 实现基础客户端类（base_client.py）
+  [X] 设置单元测试框架
+
+[X] 第二阶段：ApartmentList Rent Estimates（试点）
+  [X] 创建 rent_estimates_client.py
+  [X] 迁移现有的更新逻辑
+  [X] 更新导入脚本
+  [X] 测试功能完整性
+
+[X] 第三阶段：其他数据表
+  [X] ApartmentList Vacancy Index
+    [X] 创建 vacancy_index_client.py
+    [X] 迁移现有的更新逻辑
+    [X] 更新导入脚本
+    [X] 测试功能完整性
+  
+  [X] ApartmentList Time on Market
+    [X] 创建 time_on_market_client.py
+    [X] 迁移现有的更新逻辑
+    [X] 更新导入脚本
+    [X] 测试功能完整性
+  
+  [X] Zillow Homeowner Affordability
+    [X] 创建 homeowner_affordability_client.py
+    [X] 迁移现有的更新逻辑
+    [X] 更新导入脚本
+    [X] 测试功能完整性
+  
+  [X] Zillow Renter Affordability
+    [X] 创建 renter_affordability_client.py
+    [X] 迁移现有的更新逻辑
+    [X] 更新导入脚本
+    [X] 测试功能完整性
 
 ### 下一步计划
 [ ] 性能优化
@@ -157,3 +240,28 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - 使用反斜杠 `\` 而不是正斜杠 `/`
 - 相对路径从项目根目录开始
 - PowerShell 命令中使用反斜杠
+
+## 当前任务：测试 ApartmentList Time on Market 数据流程
+
+### 测试计划
+[X] 1. 运行数据抓取脚本
+    - 执行 scrape_apartment_list_time_on_market.py ✓
+    - 验证生成的原始数据文件 ✓
+
+[X] 2. 运行数据处理脚本
+    - 执行 process_apartment_list_time_on_market.py ✓
+    - 验证生成的处理后数据文件 ✓
+
+[ ] 3. 运行数据导入脚本
+    - 执行 import_apartment_list_time_on_market.py
+    - 验证数据是否成功导入数据库
+    - 确认物化视图是否正确刷新
+
+### 注意事项
+- 确保每个步骤都显示清晰的进度状态
+- 验证数据的完整性和正确性
+- 确保正确处理 NULL 值
+- 遵循数据库更新规则：
+  * 新地区添加所有历史数据
+  * 现有地区添加新月份数据
+  * 仅当新数据不为空时更新历史数据

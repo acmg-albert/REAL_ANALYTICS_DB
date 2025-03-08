@@ -1,4 +1,4 @@
-"""Script to import Zillow homeowner affordability data to Supabase."""
+"""Script to import ApartmentList rent estimates data to Supabase."""
 
 import logging
 import sys
@@ -9,7 +9,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from ..utils.config import Config
-from ..database.zillow import HomeownerAffordabilityClient
+from ..database.apartment_list.rent_estimates_client import RentEstimatesClient
 from ..utils.exceptions import ConfigurationError, DataImportError, DataValidationError
 
 # Configure logging
@@ -29,14 +29,22 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug(f"Columns: {df.columns.tolist()}")
     
     # Handle NaN values
-    df['new_home_affordability_down_20pct'] = df['new_home_affordability_down_20pct'].replace([np.inf, -np.inf, np.nan], None)
+    numeric_columns = [
+        'rent_estimate_overall',
+        'rent_estimate_1br',
+        'rent_estimate_2br',
+        'population'
+    ]
+    for col in numeric_columns:
+        df[col] = df[col].replace([np.inf, -np.inf, np.nan], None)
     
     # Ensure correct data types
-    df['region_id'] = df['region_id'].astype(str)
-    df['size_rank'] = df['size_rank'].astype(int)
-    df['region_name'] = df['region_name'].astype(str)
-    df['region_type'] = df['region_type'].astype(str)
-    df['state_name'] = df['state_name'].fillna('').astype(str)
+    df['location_fips_code'] = df['location_fips_code'].astype(str)
+    df['location_name'] = df['location_name'].astype(str)
+    df['location_type'] = df['location_type'].astype(str)
+    df['state'] = df['state'].fillna('').astype(str)
+    df['county'] = df['county'].fillna('').astype(str)
+    df['metro'] = df['metro'].fillna('').astype(str)
     
     logger.debug("Data types after cleaning:")
     for col in df.columns:
@@ -44,7 +52,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def import_data_in_batches(df: pd.DataFrame, client: HomeownerAffordabilityClient, batch_size: int = 1000) -> int:
+def import_data_in_batches(df: pd.DataFrame, client: RentEstimatesClient, batch_size: int = 1000) -> int:
     """
     Import data into Supabase in batches.
     
@@ -78,7 +86,7 @@ def import_data_in_batches(df: pd.DataFrame, client: HomeownerAffordabilityClien
                 records = batch_df.to_dict('records')
                 logger.debug(f"Batch {start_idx//batch_size + 1} sample: {records[0] if records else 'No records'}")
                 
-                # Import data using upsert
+                # Import data
                 rows_imported = client.insert_records(records)
                 total_imported += rows_imported
                 pbar.update(rows_imported)
@@ -95,10 +103,10 @@ def import_data_in_batches(df: pd.DataFrame, client: HomeownerAffordabilityClien
     return total_imported
 
 def find_latest_processed_file(data_dir: Path) -> Path:
-    """Find the latest processed Zillow affordability file."""
-    processed_files = list(data_dir.glob("processed_zillow_affordability_*.csv"))
+    """Find the latest processed rent estimates file."""
+    processed_files = list(data_dir.glob("rent_estimates_processed_*.csv"))
     if not processed_files:
-        raise FileNotFoundError("No processed Zillow affordability files found")
+        raise FileNotFoundError("No processed rent estimates files found")
     latest_file = max(processed_files, key=lambda p: p.stat().st_mtime)
     logger.debug(f"Found latest file: {latest_file}")
     return latest_file
@@ -114,7 +122,7 @@ def main() -> int:
         if not config.supabase_service_role_key:
             raise ConfigurationError("SUPABASE_SERVICE_ROLE_KEY is required for data import")
             
-        client = HomeownerAffordabilityClient(
+        client = RentEstimatesClient(
             url=config.supabase_url,
             key=config.supabase_service_role_key
         )

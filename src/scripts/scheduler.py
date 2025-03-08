@@ -11,7 +11,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify
 
 from ..utils.config import Config
-from ..database import SupabaseClient
+from ..database import (
+    RentEstimatesClient,
+    VacancyIndexClient,
+    TimeOnMarketClient,
+    HomeownerAffordabilityClient,
+    RenterAffordabilityClient
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -52,38 +58,25 @@ def run_script(script_name: str) -> bool:
 def update_database_views(config: Config):
     """Update database views."""
     try:
-        # Initialize Supabase client
-        supabase = SupabaseClient(
-            url=config.supabase_url,
-            key=config.supabase_service_role_key
-        )
-        
-        # 直接刷新所有视图
-        views = [
-            'apartment_list_rent_estimates_view',
-            'apartment_list_vacancy_index_view',
-            'apartment_list_time_on_market_view',
-            'zillow_new_homeowner_affordability_down_20pct_view',
-            'zillow_new_renter_affordability_view'
+        # Initialize clients
+        clients = [
+            RentEstimatesClient(url=config.supabase_url, key=config.supabase_service_role_key),
+            VacancyIndexClient(url=config.supabase_url, key=config.supabase_service_role_key),
+            TimeOnMarketClient(url=config.supabase_url, key=config.supabase_service_role_key),
+            HomeownerAffordabilityClient(url=config.supabase_url, key=config.supabase_service_role_key),
+            RenterAffordabilityClient(url=config.supabase_url, key=config.supabase_service_role_key)
         ]
         
         results = []
-        for view_name in views:
+        for client in clients:
             try:
-                refresh_sql = f"REFRESH MATERIALIZED VIEW {view_name};"
-                result = supabase.client.rpc('raw_sql', {'command': refresh_sql}).execute()
-                
-                if result.data and result.data.get('status') == 'success':
-                    logger.info(f"已刷新视图: {view_name}")
-                    results.append({'status': 'success', 'view': view_name})
-                else:
-                    logger.error(f"刷新视图失败: {view_name}")
-                    logger.error(f"错误信息: {result.data}")
-                    results.append({'status': 'error', 'view': view_name, 'error': str(result.data)})
+                client.refresh_materialized_view(client.VIEW_NAME)
+                logger.info(f"已刷新视图: {client.VIEW_NAME}")
+                results.append({'status': 'success', 'view': client.VIEW_NAME})
             except Exception as e:
-                error_msg = f"刷新视图 {view_name} 时发生错误: {str(e)}"
+                error_msg = f"刷新视图 {client.VIEW_NAME} 时发生错误: {str(e)}"
                 logger.error(error_msg)
-                results.append({'status': 'error', 'view': view_name, 'error': error_msg})
+                results.append({'status': 'error', 'view': client.VIEW_NAME, 'error': error_msg})
                 
         return results
                 
@@ -98,15 +91,15 @@ def run_full_update() -> list:
     
     # 运行所有数据处理脚本
     scripts = [
-        'scrape_rent_estimates',
-        'process_rent_estimates',
-        'import_rent_estimates',
-        'scrape_vacancy_index',
-        'process_vacancy_index',
-        'import_vacancy_index',
-        'scrape_time_on_market',
-        'process_time_on_market',
-        'import_time_on_market',
+        'scrape_apartment_list_rent_estimates',
+        'process_apartment_list_rent_estimates',
+        'import_apartment_list_rent_estimates',
+        'scrape_apartment_list_vacancy_index',
+        'process_apartment_list_vacancy_index',
+        'import_apartment_list_vacancy_index',
+        'scrape_apartment_list_time_on_market',
+        'process_apartment_list_time_on_market',
+        'import_apartment_list_time_on_market',
         'scrape_zillow_affordability',
         'process_zillow_affordability',
         'import_zillow_affordability',

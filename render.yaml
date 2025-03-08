@@ -10,15 +10,15 @@ services:
     # 启动命令 - 包含完整的数据处理流程
     startCommand: |
       # 运行数据抓取和处理
-      python -m src.scripts.scrape_rent_estimates
-      python -m src.scripts.process_rent_estimates
-      python -m src.scripts.import_rent_estimates
-      python -m src.scripts.scrape_vacancy_index
-      python -m src.scripts.process_vacancy_index
-      python -m src.scripts.import_vacancy_index
-      python -m src.scripts.scrape_time_on_market
-      python -m src.scripts.process_time_on_market
-      python -m src.scripts.import_time_on_market
+      python -m src.scripts.scrape_apartment_list_rent_estimates
+      python -m src.scripts.process_apartment_list_rent_estimates
+      python -m src.scripts.import_apartment_list_rent_estimates
+      python -m src.scripts.scrape_apartment_list_vacancy_index
+      python -m src.scripts.process_apartment_list_vacancy_index
+      python -m src.scripts.import_apartment_list_vacancy_index
+      python -m src.scripts.scrape_apartment_list_time_on_market
+      python -m src.scripts.process_apartment_list_time_on_market
+      python -m src.scripts.import_apartment_list_time_on_market
       # Zillow Affordability 数据流程
       python -m src.scripts.scrape_zillow_affordability
       python -m src.scripts.process_zillow_affordability

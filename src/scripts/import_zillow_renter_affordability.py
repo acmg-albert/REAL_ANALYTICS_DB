@@ -9,7 +9,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from ..utils.config import Config
-from ..database import SupabaseClient
+from ..database.zillow import RenterAffordabilityClient
 from ..utils.exceptions import ConfigurationError, DataImportError, DataValidationError
 
 # Configure logging
@@ -44,13 +44,13 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_size: int = 1000) -> int:
+def import_data_in_batches(df: pd.DataFrame, client: RenterAffordabilityClient, batch_size: int = 1000) -> int:
     """
     Import data into Supabase in batches.
     
     Args:
         df: DataFrame to import
-        supabase: Supabase client
+        client: Supabase client
         batch_size: Number of records per batch
         
     Returns:
@@ -79,10 +79,7 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
                 logger.debug(f"Batch {start_idx//batch_size + 1} sample: {records[0] if records else 'No records'}")
                 
                 # Import data using upsert
-                result = supabase.insert_zillow_renter_affordability(records)
-                
-                # Update progress
-                rows_imported = result if result else 0
+                rows_imported = client.insert_records(records)
                 total_imported += rows_imported
                 pbar.update(rows_imported)
                 
@@ -117,7 +114,7 @@ def main() -> int:
         if not config.supabase_service_role_key:
             raise ConfigurationError("SUPABASE_SERVICE_ROLE_KEY is required for data import")
             
-        supabase = SupabaseClient(
+        client = RenterAffordabilityClient(
             url=config.supabase_url,
             key=config.supabase_service_role_key
         )
@@ -135,13 +132,8 @@ def main() -> int:
         logger.info(f"Found {len(df)} records to import")
         
         # Import data
-        total_imported = import_data_in_batches(df, supabase)
+        total_imported = import_data_in_batches(df, client)
         logger.info(f"Successfully imported {total_imported} records")
-        
-        # Refresh materialized views
-        logger.info("Refreshing materialized views...")
-        supabase.refresh_materialized_views()
-        logger.info("Successfully refreshed materialized views")
         
         return 0
         

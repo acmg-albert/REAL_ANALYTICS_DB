@@ -1,4 +1,4 @@
-"""Script to import vacancy index data into Supabase."""
+"""Script to import ApartmentList vacancy index data into Supabase."""
 
 import logging
 import sys
@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from ..utils.config import Config
 from ..utils.exceptions import ConfigurationError, DataValidationError
-from ..utils.supabase_client import SupabaseClient
+from ..database.apartment_list.vacancy_index_client import VacancyIndexClient
 
 # Configure logging
 logging.basicConfig(
@@ -66,7 +66,7 @@ def validate_data(df: pd.DataFrame) -> None:
         if (valid_values['vacancy_index'] < 0).any() or (valid_values['vacancy_index'] > 1).any():
             raise DataValidationError("vacancy_index values must be between 0 and 1")
 
-def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_size: int = 1000) -> int:
+def import_data_in_batches(df: pd.DataFrame, client: VacancyIndexClient, batch_size: int = 1000) -> int:
     """Import data into Supabase in batches."""
     total_imported = 0
     total_rows = len(df)
@@ -87,12 +87,9 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
                 records = batch_df.to_dict('records')
                 
                 # Insert batch
-                result = supabase.insert_vacancy_index(records)
-                
-                # Update progress
-                rows_imported = len(records)
+                rows_imported = client.insert_records(records)
                 total_imported += rows_imported
-                pbar.update(rows_imported)
+                pbar.update(end_idx - start_idx)
                 
                 logger.debug(f"Imported batch {start_idx//batch_size + 1}, "
                            f"rows {start_idx+1} to {end_idx}")
@@ -105,7 +102,7 @@ def import_data_in_batches(df: pd.DataFrame, supabase: SupabaseClient, batch_siz
     return total_imported
 
 def main():
-    """Main entry point for the vacancy index import script."""
+    """Main entry point for the ApartmentList vacancy index import script."""
     try:
         # Load configuration
         config = Config.from_env()
@@ -124,13 +121,13 @@ def main():
         if not config.supabase_service_role_key:
             raise ConfigurationError("SUPABASE_SERVICE_ROLE_KEY is required for data import")
             
-        supabase = SupabaseClient(
+        client = VacancyIndexClient(
             url=config.supabase_url,
             key=config.supabase_service_role_key
         )
         
         # Import data
-        total_imported = import_data_in_batches(df, supabase)
+        total_imported = import_data_in_batches(df, client)
         logger.info(f"Successfully imported {total_imported} records")
         
         return 0
