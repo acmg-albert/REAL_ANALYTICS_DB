@@ -1,18 +1,18 @@
 # Real Estate Analytics DB
 
-## 项目说明
+## Overview
 
-这是一个房地产市场数据分析项目，用于从多个数据源收集、处理和分析房地产市场数据。
+A real estate market data analytics project that collects, processes, and analyzes real estate market data from multiple sources.
 
-## 功能特点
+## Features
 
-- 从多个数据源收集房地产市场数据
-- 数据清洗和标准化
-- 数据分析和可视化
-- API接口提供数据访问
-- 自动化数据更新
+- Multi-source real estate market data collection
+- Data cleaning and standardization
+- Data analysis and visualization
+- API access to processed data
+- Automated data updates
 
-## 技术栈
+## Tech Stack
 
 - Python 3.11+
 - FastAPI
@@ -21,103 +21,137 @@
 - Plotly
 - React + TypeScript
 
-## 项目结构
+## Project Structure
 
 ```
 REAL_ANALYTICS_DB/
-├── src/                    # 源代码
-│   ├── database/          # 数据库相关代码
-│   ├── scripts/           # 数据处理脚本
-│   └── utils/             # 工具函数
-├── tests/                 # 测试代码
-├── data/                  # 数据文件
-├── logs/                  # 日志文件
-└── docs/                  # 文档
+├── src/                    # Source code
+│   ├── database/          # Database related code
+│   │   └── supabase/      # Supabase client and operations
+│   ├── scrapers/          # Data scrapers for different sources
+│   │   ├── apartment_list/# ApartmentList data scrapers
+│   │   └── zillow/        # Zillow data scrapers
+│   ├── scripts/           # Data processing scripts
+│   └── utils/             # Utility functions
+├── tests/                 # Test code
+├── data/                  # Data files
+├── logs/                  # Log files
+└── docs/                  # Documentation
 ```
 
-## 环境配置
+## Environment Setup
 
-1. 创建Python虚拟环境：
+1. Create Python virtual environment:
 ```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 ```
 
-2. 安装依赖：
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. 配置环境变量：
-   - 复制 `.env.example` 为 `.env`
-   - 填写必要的配置信息（数据库URL、API密钥等）
+3. Configure environment variables:
+   - Copy `.env.example` to `.env`
+   - Fill in required configuration (database URL, API keys, etc.)
 
-## 数据库配置
+## Database Configuration
 
-项目使用Supabase作为数据库。您需要：
+The project uses Supabase as the database. You need to:
 
-1. 创建Supabase项目
-2. 在`.env`文件中配置以下信息：
-   - `SUPABASE_URL`：您的Supabase项目URL
-   - `SUPABASE_ANON_KEY`：公共API密钥
-   - `SUPABASE_SERVICE_ROLE_KEY`：服务角色密钥（用于数据导入）
+1. Create a Supabase project
+2. Configure the following in your `.env` file:
+   - `SUPABASE_URL`: Your Supabase project URL
+   - `SUPABASE_ANON_KEY`: Public API key
+   - `SUPABASE_SERVICE_ROLE_KEY`: Service role key (for data imports)
 
-## 使用说明
+## Usage
 
-1. 运行数据导入：
+1. Run data imports:
+
 ```bash
-python -m src.scripts.import_rent_estimates
-python -m src.scripts.import_vacancy_index
-python -m src.scripts.import_time_on_market
+# ApartmentList data
+python -m src.scripts.scrape_apartment_list_rent_estimates
+python -m src.scripts.process_apartment_list_rent_estimates
+python -m src.scripts.import_apartment_list_rent_estimates
+
+python -m src.scripts.scrape_apartment_list_vacancy_index
+python -m src.scripts.process_apartment_list_vacancy_index
+python -m src.scripts.import_apartment_list_vacancy_index
+
+python -m src.scripts.scrape_apartment_list_time_on_market
+python -m src.scripts.process_apartment_list_time_on_market
+python -m src.scripts.import_apartment_list_time_on_market
+
+# Zillow data
+python -m src.scripts.scrape_zillow_affordability
+python -m src.scripts.process_zillow_affordability
+python -m src.scripts.import_zillow_affordability
+
+python -m src.scripts.scrape_zillow_renter_affordability
+python -m src.scripts.process_zillow_renter_affordability
+python -m src.scripts.import_zillow_renter_affordability
 ```
 
-2. 启动API服务：
+2. Start API service:
 ```bash
 uvicorn src.main:app --reload
 ```
 
-3. 访问API文档：
+3. Access API documentation:
    - http://localhost:8000/docs
 
-## 数据安全
+## Data Sources
 
-- 所有敏感信息（数据库URL、API密钥等）都应该通过环境变量配置
-- 不要在代码中硬编码敏感信息
-- 确保`.env`文件已添加到`.gitignore`
-- 使用`.env.example`作为配置模板
+### ApartmentList
+- Rent Estimates: Monthly rent estimates by city
+- Vacancy Index: Rental vacancy rates by city
+- Time on Market: Average time properties spend on the rental market
 
-## 开发指南
+### Zillow
+- New Homeowner Affordability: Monthly affordability metrics for new homeowners (20% down payment)
+- New Renter Affordability: Monthly affordability metrics for renters
 
-1. 代码风格
-   - 使用Black格式化代码
-   - 使用Flake8检查代码质量
-   - 使用MyPy进行类型检查
+## Data Security
 
-2. 测试
-   - 使用Pytest运行测试
-   - 保持测试覆盖率在80%以上
+- All sensitive information (database URLs, API keys) should be configured through environment variables
+- Never hardcode sensitive information in the code
+- Ensure `.env` file is added to `.gitignore`
+- Use `.env.example` as a configuration template
 
-3. 文档
-   - 所有代码都应该有清晰的文档字符串
-   - API端点应该有完整的OpenAPI文档
+## Development Guidelines
 
-## 部署
+1. Code Style
+   - Use Black for code formatting
+   - Use Flake8 for code quality checks
+   - Use MyPy for type checking
 
-项目使用Render进行部署：
+2. Testing
+   - Use Pytest for running tests
+   - Maintain test coverage above 80%
 
-1. 配置Render服务
-2. 设置环境变量
-3. 配置部署钩子
-4. 启用自动部署
+3. Documentation
+   - All code should have clear docstrings
+   - API endpoints should have complete OpenAPI documentation
 
-## 贡献指南
+## Deployment
 
-1. Fork项目
-2. 创建功能分支
-3. 提交更改
-4. 创建Pull Request
+The project is deployed using Render:
 
-## 许可证
+1. Configure Render service
+2. Set environment variables
+3. Configure deployment hooks
+4. Enable automatic deployment
+
+## Contributing
+
+1. Fork the project
+2. Create a feature branch
+3. Submit changes
+4. Create a Pull Request
+
+## License
 
 MIT License 

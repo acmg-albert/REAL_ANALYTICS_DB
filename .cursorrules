@@ -78,9 +78,18 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - 添加随机延迟避免被封禁
 - 验证响应内容和文件完整性
 
+## Zillow 数据源经验
+- 直接使用 Zillow 的 CSV 文件 URL 更高效
+- 示例 URL：
+  * 房主负担能力：`https://files.zillowstatic.com/research/public_csvs/new_homeowner_affordability/Metro_new_homeowner_affordability_downpayment_0.20_uc_sfrcondo_tier_0.33_0.67_sm_sa_month.csv`
+  * 租户负担能力：`https://files.zillowstatic.com/research/public_csvs/new_renter_affordability/Metro_new_renter_affordability_uc_sfrcondomfr_sm_sa_month.csv`
+- 不需要复杂的网页抓取逻辑
+- 需要验证数据完整性和格式
+- 保持 URL 参数的一致性
+
 # Scratchpad
 
-## 当前项目状态回顾（2024-02-23）
+## 当前项目状态回顾（2024-03-08）
 
 ### 已完成功能
 1. ApartmentList 数据流程（完整）
@@ -101,8 +110,9 @@ The goal is to help you maintain a big picture as well as the progress of the ta
      * zillow_new_homeowner_affordability_down_20pct_view
    - 数据导入更新问题修复 ✓
    - Render 部署更新 ✓
+   - 代码优化（直接使用 CSV URL）✓
 
-3. Zillow Renter Affordability 数据流程（新建）
+3. Zillow Renter Affordability 数据流程（已完成）
    - 代码文件创建 ✓
      * src/scrapers/zillow/renter_affordability_scraper.py
      * src/scripts/scrape_zillow_renter_affordability.py
@@ -111,91 +121,39 @@ The goal is to help you maintain a big picture as well as the progress of the ta
      * src/scripts/import_zillow_renter_affordability.py
    - 数据库方法添加 ✓
      * SupabaseClient.insert_zillow_renter_affordability()
+   - 数据抓取 ✓
+   - 数据处理 ✓
+   - 数据导入 ✓
+   - 物化视图刷新 ✓
 
 ### 当前任务
-[X] 测试修复后的 Zillow Affordability 数据导入功能
-  [X] 运行导入脚本
-  [X] 验证数据是否正确导入
-  [X] 检查物化视图是否正确更新
-[X] 更新 Render 部署配置
-  [X] 添加 Zillow 数据流程到 render.yaml
-  [X] 提交更改到 GitHub
-[X] 更新调度器配置
-  [X] 添加 Zillow 数据流程到 scheduler.py
-  [X] 提交更改到 GitHub
-  [X] 本地测试调度器
+[X] 优化 Zillow Renter Affordability 抓取代码
+  [X] 找到直接 CSV URL
+  [X] 更新抓取逻辑
+  [X] 测试新的抓取方法
+  [X] 验证数据完整性
+
+[X] 代码清理和文档更新
+  [X] 更新所有代码注释
+  [X] 更新 README.md
+  [X] 更新 API 文档
+  [X] 更新部署文档
 
 ### 下一步计划
-[X] 等待并验证 Render 部署
-  [X] 监控部署状态
-  [X] 检查部署后的日志
-  [X] 验证数据流程是否正常运行
+[ ] 性能优化
+  [ ] 优化数据导入批处理大小
+  [ ] 优化数据处理逻辑
+  [ ] 优化错误处理和重试机制
+  [ ] 添加性能监控指标
 
-[X] 验证数据质量
-  [X] 检查数据完整性
-  [X] 验证数据一致性
-  [X] 确认数据更新频率
-
-[X] 监控系统设置
-  [X] 设置数据导入监控
-  [X] 配置错误告警
-  [X] 建立性能指标追踪
+[ ] 监控系统完善
+  [ ] 完善日志记录
+  [ ] 添加数据质量检查
+  [ ] 设置告警阈值
+  [ ] 创建监控仪表板
 
 ### 项目路径重要提醒
 - 所有操作必须在 `E:\Cursor_AI\REAL_ANALYTICS_DB` 目录下进行
 - 使用反斜杠 `\` 而不是正斜杠 `/`
-- 所有相对路径都应该相对于这个目录
-- 在 PowerShell 中必须使用反斜杠 `\`
-
-### 项目要求
-- 所有代码、注释和文档必须使用英文
-- 每个数据源模块必须独立
-- 所有操作必须显示清晰的进度状态
-- 使用 Python venv 在 ./venv 目录
-- 在程序输出中包含调试信息
-- 在编辑文件前先阅读文件内容
-
-### 经验教训
-1. 数据导入流程标准化
-   - 使用 upsert 方法进行数据导入
-   - 添加适当的日志记录
-   - 显示清晰的进度条
-   - 验证导入结果
-
-2. 代码组织
-   - 保持模块独立性
-   - 使用统一的命名规范
-   - 添加适当的注释和文档
-   - 遵循代码风格指南
-
-3. 错误处理
-   - 添加详细的错误日志
-   - 实现错误重试机制
-   - 提供清晰的错误信息
-   - 保持数据一致性
-
-4. 部署流程
-   - 在本地完全测试后再部署
-   - 使用统一的配置管理
-   - 保护敏感信息
-   - 监控部署状态
-
-5. 数据流程改进
-   - 确保每个步骤都有清晰的进度显示
-   - 添加详细的日志记录
-   - 实现错误重试机制
-   - 验证数据完整性
-   - 监控数据更新频率
-
-### 新增经验教训
-6. 日期格式处理
-   - 支持多种日期格式（YYYY-MM-DD 和 MM/DD/YYYY）
-   - 在验证和处理阶段都要考虑日期格式兼容性
-   - 统一日期格式的处理方法
-   - 添加日期格式验证的错误处理
-
-7. 数据导入优化
-   - 使用批量导入提高性能
-   - 实现断点续传机制
-   - 添加数据验证步骤
-   - 记录导入进度和统计信息
+- 相对路径从项目根目录开始
+- PowerShell 命令中使用反斜杠

@@ -22,4 +22,8 @@ class ProcessingError(Exception):
 
 class DataImportError(Exception):
     """数据导入错误异常"""
+    pass
+
+class DownloadError(Exception):
+    """文件下载错误异常"""
     pass 
