@@ -55,6 +55,8 @@ test_*.py
 *.csv
 *.xlsx
 *.json
+*.parquet
+*.feather
 
 # Testing
 .coverage
@@ -74,4 +76,13 @@ Thumbs.db
 
 # Temporary files
 *.bak
-*~ 
+*~
+
+# Sensitive information
+**/credentials.json
+**/secrets.yaml
+**/*.key
+**/*.pem
+**/*.crt
+**/*.p12
+**/*.pfx 

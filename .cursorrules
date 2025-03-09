@@ -139,6 +139,12 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - ApartmentList Vacancy Index 表只有一个指标：
   * vacancy_index（不包含1br和2br）
 
+## Zillow 中位数价格数据列名规则
+- 数据库表中的列名为 `median_sale_price_all_home`
+- 处理器输出的列名为 `median_sale_price`
+- 在导入脚本中需要进行列名转换
+- 列名转换应在处理 NULL 值之后进行，以确保数据完整性
+
 # Scratchpad
 
 ## 当前项目状态回顾（2024-03-08）
@@ -265,3 +271,53 @@ The goal is to help you maintain a big picture as well as the progress of the ta
   * 新地区添加所有历史数据
   * 现有地区添加新月份数据
   * 仅当新数据不为空时更新历史数据
+
+## 当前任务：测试 Zillow Median Sale Price 数据流程
+
+### 任务说明
+测试新创建的 Zillow 房屋销售中位数价格数据的完整流程，包括：
+1. 数据抓取
+2. 数据处理
+3. 数据导入
+
+### 测试计划
+[X] 1. 数据抓取测试
+    - 运行 scrape_zillow_median_sale_price.py ✓
+    - 验证下载的数据文件 ✓
+    - 检查日志输出 ✓
+    - 验证数据格式和完整性 ✓
+
+[X] 2. 数据处理测试
+    - 运行 process_zillow_median_sale_price.py ✓
+    - 验证处理后的数据文件 ✓
+    - 检查数据转换是否正确 ✓
+    - 验证所有必需字段 ✓
+
+[ ] 3. 数据导入测试
+    - 运行 import_zillow_median_sale_price.py
+    - 验证数据是否成功导入 Supabase
+    - 检查数据更新规则是否正确执行
+    - 验证物化视图是否正确刷新
+
+### 注意事项
+- 确保环境变量配置正确
+- 记录每个步骤的日志输出
+- 验证数据的完整性和准确性
+- 检查错误处理机制
+- 确保符合项目的代码规范和数据处理规则
+
+### 已完成的工作
+1. 数据抓取
+   - 修复了 session 使用问题
+   - 修正了日期格式验证（从 MM/DD/YYYY 改为 YYYY-MM-DD）
+   - 成功下载并验证了数据文件
+
+2. 数据处理
+   - 修正了异常类（从 DataProcessingError 改为 ProcessingError）
+   - 实现了数据验证和转换逻辑
+   - 成功处理并保存了数据文件
+
+### 下一步
+- 测试数据导入脚本
+- 验证数据库更新规则
+- 检查物化视图刷新

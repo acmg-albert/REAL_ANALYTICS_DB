@@ -27,6 +27,10 @@ services:
       python -m src.scripts.scrape_zillow_renter_affordability
       python -m src.scripts.process_zillow_renter_affordability
       python -m src.scripts.import_zillow_renter_affordability
+      # Zillow Median Sale Price 数据流程
+      python -m src.scripts.scrape_zillow_median_sale_price
+      python -m src.scripts.process_zillow_median_sale_price
+      python -m src.scripts.import_zillow_median_sale_price
       # 启动调度器
       gunicorn src.scripts.scheduler:app --workers 4 --bind 0.0.0.0:$PORT
     envVars:
