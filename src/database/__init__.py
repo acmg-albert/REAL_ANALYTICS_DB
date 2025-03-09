@@ -1,7 +1,7 @@
 """Database modules for the application."""
 
 from .apartment_list import RentEstimatesClient, VacancyIndexClient, TimeOnMarketClient
-from .zillow import HomeownerAffordabilityClient, RenterAffordabilityClient
+from .zillow import HomeownerAffordabilityClient, RenterAffordabilityClient, MedianSalePriceClient
 
 __all__ = [
     'RentEstimatesClient',
@@ -9,4 +9,5 @@ __all__ = [
     'TimeOnMarketClient',
     'HomeownerAffordabilityClient',
     'RenterAffordabilityClient',
+    'MedianSalePriceClient',
 ] 

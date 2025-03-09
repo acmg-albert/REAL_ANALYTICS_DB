@@ -51,15 +51,16 @@ services:
     healthCheckTimeout: 300
     # 排除测试和检查脚本
     excludeFiles:
-      - tests/**/*
-      - **/*test*.py
+      - tests/
+      - **/*.test.py
       - **/*_test.py
       - test_*.py
       - pytest.ini
-      - .pytest_cache/**/*
+      - .pytest_cache/
       - src/scripts/cleanup_*.py
       - src/scripts/check_*.py
       - src/scripts/verify_*.py
       - src/scripts/drop_*.py
+      - src/scripts/execute_sql.py
       - data/**/*.csv
       - logs/**/*.log 
