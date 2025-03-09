@@ -16,7 +16,8 @@ from ..database import (
     VacancyIndexClient,
     TimeOnMarketClient,
     HomeownerAffordabilityClient,
-    RenterAffordabilityClient
+    RenterAffordabilityClient,
+    MedianSalePriceClient
 )
 
 # Configure logging
@@ -64,7 +65,8 @@ def update_database_views(config: Config):
             VacancyIndexClient(url=config.supabase_url, key=config.supabase_service_role_key),
             TimeOnMarketClient(url=config.supabase_url, key=config.supabase_service_role_key),
             HomeownerAffordabilityClient(url=config.supabase_url, key=config.supabase_service_role_key),
-            RenterAffordabilityClient(url=config.supabase_url, key=config.supabase_service_role_key)
+            RenterAffordabilityClient(url=config.supabase_url, key=config.supabase_service_role_key),
+            MedianSalePriceClient(url=config.supabase_url, key=config.supabase_service_role_key)
         ]
         
         results = []
@@ -105,7 +107,10 @@ def run_full_update() -> list:
         'import_zillow_affordability',
         'scrape_zillow_renter_affordability',
         'process_zillow_renter_affordability',
-        'import_zillow_renter_affordability'
+        'import_zillow_renter_affordability',
+        'scrape_zillow_median_sale_price',
+        'process_zillow_median_sale_price',
+        'import_zillow_median_sale_price'
     ]
     
     for script in scripts:
