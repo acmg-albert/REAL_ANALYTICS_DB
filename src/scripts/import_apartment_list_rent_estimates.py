@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from tqdm import tqdm
+import time
 
 from ..utils.config import Config
 from ..database.apartment_list.rent_estimates_client import RentEstimatesClient
@@ -52,7 +53,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def import_data_in_batches(df: pd.DataFrame, client: RentEstimatesClient, batch_size: int = 1000) -> int:
+def import_data_in_batches(df: pd.DataFrame, client: RentEstimatesClient, batch_size: int = 500) -> int:
     """
     Import data into Supabase in batches.
     
@@ -65,40 +66,54 @@ def import_data_in_batches(df: pd.DataFrame, client: RentEstimatesClient, batch_
         int: Total number of records imported
         
     Raises:
-        DataImportError: If import fails
+        DataImportError: If import fails after all retries
     """
     total_imported = 0
     total_rows = len(df)
+    max_retries = 3
+    retry_delay = 5  # seconds
     
     logger.info(f"Starting batch import of {total_rows} records")
     logger.debug(f"Sample record: {df.iloc[0].to_dict() if len(df) > 0 else 'No records'}")
     
     with tqdm(total=total_rows, desc="Importing data") as pbar:
         for start_idx in range(0, total_rows, batch_size):
-            try:
-                end_idx = min(start_idx + batch_size, total_rows)
-                batch_df = df.iloc[start_idx:end_idx]
-                
-                # Handle NaN values
-                batch_df = batch_df.replace({float('nan'): None, 'nan': None})
-                
-                # Convert to records
-                records = batch_df.to_dict('records')
-                logger.debug(f"Batch {start_idx//batch_size + 1} sample: {records[0] if records else 'No records'}")
-                
-                # Import data
-                rows_imported = client.insert_records(records)
-                total_imported += rows_imported
-                pbar.update(rows_imported)
-                
-                logger.debug(f"Imported batch {start_idx//batch_size + 1}, "
-                           f"rows {start_idx+1} to {end_idx}, "
-                           f"imported {rows_imported} records")
-                
-            except Exception as e:
-                logger.error(f"Error importing batch {start_idx//batch_size + 1}: {str(e)}")
-                logger.error(f"First record in failed batch: {records[0] if records else 'No records'}")
-                raise DataImportError(f"Failed to import batch: {str(e)}") from e
+            end_idx = min(start_idx + batch_size, total_rows)
+            batch_df = df.iloc[start_idx:end_idx]
+            
+            # Handle NaN values
+            batch_df = batch_df.replace({float('nan'): None, 'nan': None})
+            
+            # Convert to records
+            records = batch_df.to_dict('records')
+            
+            # 重试机制
+            for retry in range(max_retries):
+                try:
+                    logger.debug(f"Attempting batch {start_idx//batch_size + 1} (Attempt {retry + 1}/{max_retries})")
+                    
+                    # Import data
+                    rows_imported = client.insert_records(records)
+                    total_imported += rows_imported
+                    pbar.update(rows_imported)
+                    
+                    logger.debug(f"Imported batch {start_idx//batch_size + 1}, "
+                               f"rows {start_idx+1} to {end_idx}, "
+                               f"imported {rows_imported} records")
+                    
+                    # 成功则跳出重试循环
+                    break
+                    
+                except Exception as e:
+                    if retry < max_retries - 1:
+                        logger.warning(f"Error importing batch {start_idx//batch_size + 1} "
+                                     f"(Attempt {retry + 1}/{max_retries}): {str(e)}")
+                        logger.warning(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        logger.error(f"Error importing batch {start_idx//batch_size + 1}: {str(e)}")
+                        logger.error(f"First record in failed batch: {records[0] if records else 'No records'}")
+                        raise DataImportError(f"Failed to import batch after {max_retries} attempts: {str(e)}")
     
     return total_imported
 
