@@ -35,10 +35,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug(f"Columns: {df.columns.tolist()}")
     
     # Handle NaN values
-    df['median_sale_price'] = df['median_sale_price'].replace([np.inf, -np.inf, np.nan], None)
-    
-    # Rename column
-    df = df.rename(columns={'median_sale_price': 'median_sale_price_all_home'})
+    df['median_sale_price_all_home'] = df['median_sale_price_all_home'].replace([np.inf, -np.inf, np.nan], None)
     
     # Ensure correct data types
     df['region_id'] = df['region_id'].astype(str)
